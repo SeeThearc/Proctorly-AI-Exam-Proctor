@@ -1,0 +1,162 @@
+.history-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.history-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.history-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #212529;
+}
+
+.history-course {
+  margin: 0 0 12px 0;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.history-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap:  wrap;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius:  12px;
+  font-size:  12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-auto-submitted {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.status-in-progress {
+  background: #e3f2fd;
+  color:  #1976d2;
+}
+
+.history-score {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.score-circle-mini {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.score-circle-mini svg {
+  width: 100%;
+  height: 100%;
+}
+
+.score-text-mini {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.score-value-mini {
+  display: block;
+  font-size: 20px;
+  font-weight:  700;
+  color: #212529;
+  line-height: 1;
+}
+
+.score-total-mini {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.score-details {
+  display: flex;
+  flex-direction: column;
+  gap:  8px;
+}
+
+.percentage {
+  font-size: 28px;
+  font-weight:  700;
+  color: #212529;
+}
+
+.result-label {
+  padding: 6px 16px;
+  border-radius:  20px;
+  font-size:  14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.result-pass {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.result-fail {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.history-warnings {
+  padding: 12px;
+  background: #fff3cd;
+  border-radius: 8px;
+  color: #856404;
+  font-size:  14px;
+  font-weight: 500;
+}
+
+.history-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .history-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .history-score {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

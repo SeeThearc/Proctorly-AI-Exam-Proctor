@@ -1,0 +1,96 @@
+.admin-dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.section {
+  margin-bottom: 48px;
+}
+
+.section h2 {
+  margin-bottom: 24px;
+  color: #212529;
+  font-size: 24px;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.violations-stats {
+  padding: 20px;
+}
+
+.violation-summary h3 {
+  margin-bottom: 24px;
+  color: #212529;
+}
+
+.violations-by-type {
+  display: grid;
+  gap: 12px;
+}
+
+.violation-type-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.violation-name {
+  text-transform: capitalize;
+  color: #212529;
+  font-weight: 500;
+}
+
+.violation-count {
+  background: #dc3545;
+  color: white;
+  padding: 4px 12px;
+  border-radius:  12px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.recent-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items:  center;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.activity-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activity-details {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.activity-time {
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.activity-score {
+  font-size: 18px;
+  font-weight:  700;
+  color: #007bff;
+}

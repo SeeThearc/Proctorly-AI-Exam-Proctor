@@ -1,0 +1,107 @@
+.face-setup-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.face-setup-card {
+  background:  white;
+  border-radius:  16px;
+  padding: 40px;
+  max-width: 700px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.face-setup-card h1 {
+  text-align: center;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.face-setup-description {
+  text-align: center;
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.face-setup-video-container {
+  width: 100%;
+  height: 400px;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.face-setup-placeholder {
+  text-align: center;
+  color: white;
+}
+
+.face-setup-icon {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.face-setup-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.face-setup-instructions {
+  background: #f8f9fa;
+  padding:  20px;
+  border-radius:  8px;
+  margin-bottom:  24px;
+}
+
+.face-setup-instructions h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.face-setup-instructions ul {
+  margin:  0;
+  padding-left: 20px;
+}
+
+.face-setup-instructions li {
+  margin-bottom: 8px;
+  color: #555;
+}
+
+.face-setup-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.face-setup-skip {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.skip-button {
+  background: none;
+  border: none;
+  color: #6c757d;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.skip-button:hover {
+  color: #333;
+}

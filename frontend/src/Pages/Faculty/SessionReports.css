@@ -1,0 +1,185 @@
+.session-reports-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.sessions-table th {
+  background:  #f8f9fa;
+  padding: 16px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #212529;
+  border-bottom: 2px solid #e0e0e0;
+  white-space: nowrap;
+}
+
+.sessions-table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.sessions-table tbody tr:hover {
+  background:  #f8f9fa;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight:  600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.status-completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-in-progress {
+  background: #e3f2fd;
+  color:  #1976d2;
+}
+
+.status-auto-submitted {
+  background: #fff3e0;
+  color:  #f57c00;
+}
+
+.result-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight:  600;
+  white-space: nowrap;
+}
+
+.result-pass {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.result-fail {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.warning-count {
+  color: #dc3545;
+  font-weight: 700;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.violations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: 600px;
+  overflow-y:  auto;
+}
+
+.violation-item {
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border-left:  4px solid #dc3545;
+}
+
+.violation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.violation-type {
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size:  13px;
+  font-weight:  600;
+  text-transform: capitalize;
+}
+
+.type-high {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.type-medium {
+  background:  #fff3e0;
+  color:  #f57c00;
+}
+
+.type-low {
+  background: #e3f2fd;
+  color:  #1976d2;
+}
+
+.violation-time {
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.violation-snapshot {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 8px;
+  margin:  12px 0;
+}
+
+.violation-severity {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.severity-high {
+  color: #c62828;
+  font-weight: 700;
+}
+
+.severity-medium {
+  color:  #f57c00;
+  font-weight: 700;
+}
+
+.severity-low {
+  color: #1976d2;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .sessions-table {
+    font-size: 12px;
+  }
+
+  .sessions-table th,
+  .sessions-table td {
+    padding:  8px 6px;
+  }
+}
