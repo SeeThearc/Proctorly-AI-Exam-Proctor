@@ -78,7 +78,7 @@ feature branches are created for new features
 pull requests are used before merging
 
 
-**Quick Start – Local Development**
+##**Quick Start – Local Development**
 
 Follow these steps to run the frontend (Vite) and backend (Node.js) together using Docker.
 
