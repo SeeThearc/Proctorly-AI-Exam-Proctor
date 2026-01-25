@@ -1,54 +1,62 @@
-🧠 AI-Based Online Exam Proctoring System
-Extended MERN Stack with Role-Based Authentication
+AI-Based Online Exam Proctoring System
+(Extended MERN Stack with Machine Learning)
 
-📌 Overview
-An AI-powered online examination platform built using the Extended MERN Stack that ensures secure, fair, and tamper-proof exams through real-time webcam proctoring, role-based access control, and automated violation handling.
+Project Overview
 
-👥 User Roles
-Faculty: Creates exams, evaluates results, reviews violation reports
-Student: Attempts exams under continuous AI monitoring
+An AI-powered online examination system built using the Extended MERN stack that ensures secure, fair, and monitored online exams. The platform integrates real-time computer vision–based proctoring, role-based authentication, and automated violation handling to prevent cheating and impersonation.
 
-🔐 Authentication & Security
-JWT-based login and protected routes
-Role-based authorization (Admin / Faculty / Student)
-Encrypted credentials and secure MongoDB storage
+Problem It Solves
 
-🧠 AI Proctoring Features
-Face detection & recognition (identity verification)
-Multiple face detection (unauthorized presence)
-Head movement analysis (suspicious behavior)
-Implemented using OpenCV, Haar Cascades, CNNs, TensorFlow.js.
+Traditional online exams lack effective monitoring, making them vulnerable to impersonation, unfair practices, and rule violations such as tab switching or external assistance. This system addresses these issues by enforcing continuous AI-based monitoring and strict exam environment controls.
 
-🖥️ Exam Monitoring
-Mandatory full-screen mode
-Detection of tab switching, minimizing, or screen exit
-All violations logged in real time
+Target Users (Personas)
 
-⚠️ Warning System
-Centralized violation counter
-Each violation increments warnings
-3 warnings → auto-submit exam + terminate session
-Detailed violation report generated for faculty
+Faculty: Conducts and evaluates online exams, reviews violation reports, and monitors exam integrity.
 
-🏗️ Tech Stack
-Frontend: React.js, TensorFlow.js, WebRTC
-Backend: Node.js, Express.js, JWT
-Database: MongoDB
-ML: OpenCV, CNNs, Haar Cascade
+Students: Attempts online exams under secure authentication and continuous AI proctoring.
 
-🚀 Setup
-git clone <repo-url>
-cd backend
-npm install && npm start
-cd frontend
-npm install && npm start
+Vision Statement
 
-📁 Database Collections
-Users
-Exams
-Exam Sessions
-Violations
-Results
+To provide a reliable, scalable, and intelligent online examination platform that maintains academic integrity through automated AI-based proctoring and secure system design.
 
-🎓 Use Case
-Suitable for academic evaluations, online assessments, and secure remote examinations with real-world AI integration.
+Key Features / Goals
+
+JWT-based authentication with role-based access (Faculty & Student)
+
+AI-based webcam proctoring (face detection, multiple face detection, head movement analysis)
+
+Mandatory full-screen exam environment
+
+Detection of tab switching, window minimizing, and focus loss
+
+Centralized warning system with auto-submission after three violations
+
+Secure storage of exam data, logs, and reports in MongoDB
+
+Success Metrics
+
+Reduction in cheating incidents during online exams
+
+Accurate detection of face and behavior-based violations
+
+Successful auto-submission after violation threshold
+
+Positive faculty feedback on report clarity and usability
+
+Stable performance during concurrent exam sessions
+
+Assumptions & Constraints
+
+Assumptions
+
+Students have access to a webcam-enabled device and stable internet
+
+Users attempt exams using modern browsers supporting WebRTC
+
+Constraints
+
+Accuracy depends on lighting and camera quality
+
+Browser-based proctoring cannot prevent all external cheating methods
+
+Real-time ML inference may impact performance on low-end devices
