@@ -60,3 +60,10 @@ Accuracy depends on lighting and camera quality
 Browser-based proctoring cannot prevent all external cheating methods
 
 Real-time ML inference may impact performance on low-end devices
+
+| Priority    | Features                               |
+| ----------- | -------------------------------------- |
+| Must Have   | Login, Exam Monitoring, Face Detection |
+| Should Have | Face Tracker                           |
+| Could Have  | Voice Detection                        |
+| Won’t Have  | Mobile App                             |
