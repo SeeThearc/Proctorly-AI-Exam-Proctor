@@ -76,3 +76,26 @@ main branch is always stable
 feature branches are created for new features
 
 pull requests are used before merging
+
+
+**Quick Start – Local Development**
+
+Follow these steps to run the frontend (Vite) and backend (Node.js) together using Docker.
+
+**Prerequisites**
+
+Make sure you have the following installed:
+
+Docker
+
+Docker Compose
+
+**From the project root directory, run:
+
+docker-compose up --build**
+
+**Access the Application**
+
+Frontend (Vite): http://localhost:5173
+
+Backend (Node API): http://localhost:5000
