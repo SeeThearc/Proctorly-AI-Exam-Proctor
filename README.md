@@ -72,5 +72,7 @@ Real-time ML inference may impact performance on low-end devices
 
 We follow GitHub Flow:
 main branch is always stable
+
 feature branches are created for new features
+
 pull requests are used before merging
