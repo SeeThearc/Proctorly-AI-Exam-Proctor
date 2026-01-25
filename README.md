@@ -67,3 +67,10 @@ Real-time ML inference may impact performance on low-end devices
 | Should Have | Face Tracker                           |
 | Could Have  | Voice Detection                        |
 | Won’t Have  | Mobile App                             |
+
+## Branching Strategy
+
+We follow GitHub Flow:
+main branch is always stable
+feature branches are created for new features
+pull requests are used before merging
