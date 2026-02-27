@@ -1,54 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+/* ─── Variables ─────────────────────────────────────────── */
+:root {
+  --navy:        #0d1b2a;
+  --navy-light:  #1a2e45;
+  --navy-mid:    #243b55;
+  --amber:       #f5a623;
+  --amber-light: #ffc55a;
+  --cream:       #fdf6ec;
+  --text-dark:   #0d1b2a;
+  --text-muted:  #6b7f93;
+  --border:      #dce5ef;
+  --success:     #2d9e6b;
+  --error:       #e05252;
+  --radius:      12px;
+  --shadow:      0 24px 60px rgba(13, 27, 42, 0.18), 0 4px 16px rgba(13, 27, 42, 0.08);
+}
+
+/* ─── Container ─────────────────────────────────────────── */
 .face-setup-container {
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  padding: 24px;
+  background-color: var(--navy);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(245, 166, 35, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 90%, rgba(36, 59, 85, 0.9) 0%, transparent 60%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 60px,
+      rgba(255, 255, 255, 0.015) 60px,
+      rgba(255, 255, 255, 0.015) 61px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 60px,
+      rgba(255, 255, 255, 0.015) 60px,
+      rgba(255, 255, 255, 0.015) 61px
+    );
+  position: relative;
+  overflow: hidden;
 }
 
+.face-setup-container::before {
+  content: '';
+  position: absolute;
+  top: -200px;
+  right: -200px;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 166, 35, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ─── Card ──────────────────────────────────────────────── */
 .face-setup-card {
-  background:  white;
-  border-radius:  16px;
-  padding: 40px;
-  max-width: 700px;
+  background: var(--cream);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 48px 44px 40px;
   width: 100%;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 680px;
+  position: relative;
+  animation: cardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  overflow: hidden;
 }
 
+.face-setup-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--amber), var(--amber-light), var(--amber));
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Header ────────────────────────────────────────────── */
 .face-setup-card h1 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-dark);
   text-align: center;
-  margin-bottom: 12px;
-  color: #333;
+  margin: 0 0 10px;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
 }
 
 .face-setup-description {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-muted);
   text-align: center;
-  color: #666;
-  margin-bottom: 24px;
+  margin: 0 0 28px;
+  letter-spacing: 0.2px;
+  line-height: 1.6;
 }
 
+/* ─── Video Container ───────────────────────────────────── */
 .face-setup-video-container {
   width: 100%;
-  height: 400px;
-  background: #000;
-  border-radius: 12px;
+  height: 380px;
+  background: var(--navy);
+  border-radius: 14px;
   overflow: hidden;
   margin-bottom: 24px;
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.06);
+}
+
+/* Subtle corner brackets for a "scanning" feel */
+.face-setup-video-container::before,
+.face-setup-video-container::after {
+  content: '';
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-color: var(--amber);
+  border-style: solid;
+  opacity: 0.6;
+  z-index: 2;
+  pointer-events: none;
+}
+.face-setup-video-container::before {
+  top: 16px;
+  left: 16px;
+  border-width: 2px 0 0 2px;
+  border-radius: 4px 0 0 0;
+}
+.face-setup-video-container::after {
+  bottom: 16px;
+  right: 16px;
+  border-width: 0 2px 2px 0;
+  border-radius: 0 0 4px 0;
 }
 
 .face-setup-placeholder {
   text-align: center;
-  color: white;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .face-setup-icon {
-  font-size: 64px;
+  font-size: 56px;
   display: block;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  filter: grayscale(0.2);
+}
+
+.face-setup-placeholder p {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  margin: 0;
+  letter-spacing: 0.3px;
 }
 
 .face-setup-video {
@@ -57,51 +188,138 @@
   object-fit: cover;
 }
 
+/* ─── Instructions ──────────────────────────────────────── */
 .face-setup-instructions {
-  background: #f8f9fa;
-  padding:  20px;
-  border-radius:  8px;
-  margin-bottom:  24px;
+  background: #ffffff;
+  border: 1.5px solid var(--border);
+  border-left: 3px solid var(--amber);
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  margin-bottom: 28px;
 }
 
 .face-setup-instructions h3 {
-  margin-top: 0;
-  margin-bottom: 12px;
-  color: #333;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-dark);
+  margin: 0 0 12px;
 }
 
 .face-setup-instructions ul {
-  margin:  0;
-  padding-left: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
 }
 
 .face-setup-instructions li {
-  margin-bottom: 8px;
-  color: #555;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
+/* ─── Actions ───────────────────────────────────────────── */
 .face-setup-actions {
   display: flex;
   gap: 12px;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
+/* Button overrides to match Auth.css style */
+.face-setup-actions .btn,
+.face-setup-actions button {
+  padding: 12px 32px;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  letter-spacing: 0.2px;
+}
+
+.face-setup-actions .btn-primary,
+.face-setup-actions .btn-success {
+  background: var(--navy);
+  color: #fff;
+}
+
+.face-setup-actions .btn-primary:hover,
+.face-setup-actions .btn-success:hover {
+  background: var(--navy-mid);
+  box-shadow: 0 6px 20px rgba(13, 27, 42, 0.25);
+  transform: translateY(-1px);
+}
+
+.face-setup-actions .btn-secondary {
+  background: #ffffff;
+  color: var(--text-dark);
+  border: 1.5px solid var(--border);
+}
+
+.face-setup-actions .btn-secondary:hover {
+  border-color: var(--navy);
+  background: var(--cream);
+  transform: translateY(-1px);
+}
+
+.face-setup-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ─── Skip ──────────────────────────────────────────────── */
 .face-setup-skip {
   text-align: center;
-  padding-top: 16px;
-  border-top: 1px solid #e0e0e0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
 }
 
 .skip-button {
   background: none;
   border: none;
-  color: #6c757d;
-  text-decoration: underline;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
+  padding: 0;
+  border-bottom: 1px dashed var(--border);
+  transition: color 0.2s ease, border-color 0.2s ease;
+  letter-spacing: 0.2px;
 }
 
 .skip-button:hover {
-  color: #333;
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media (max-width: 580px) {
+  .face-setup-card {
+    padding: 36px 20px 28px;
+  }
+
+  .face-setup-video-container {
+    height: 280px;
+  }
+
+  .face-setup-instructions ul {
+    grid-template-columns: 1fr;
+  }
+
+  .face-setup-actions {
+    flex-direction: column;
+  }
 }
