@@ -17,10 +17,10 @@ exports.getStudents = async (req, res, next) => {
 
     // If search provided, add search criteria
     if (search && search.trim().length >= 2) {
-      const searchRegex = new RegExp(search. trim(), 'i');
+      const searchRegex = new RegExp(search.trim(), 'i');
       query.$or = [
         { name: searchRegex },
-        { email:  searchRegex },
+        { email: searchRegex },
         { studentId: searchRegex },
         { department: searchRegex }
       ];
@@ -66,7 +66,7 @@ exports.createExam = async (req, res, next) => {
 
     console.log('📥 Received exam creation request');
     console.log('Title:', title);
-    console.log('Questions count:', questions?. length);
+    console.log('Questions count:', questions?.length);
     console.log('Passing marks:', passingMarks);
 
     // Validation
@@ -77,7 +77,7 @@ exports.createExam = async (req, res, next) => {
       });
     }
 
-    if (! Array.isArray(questions) || questions.length === 0) {
+    if (!Array.isArray(questions) || questions.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'At least one question is required'
@@ -87,8 +87,8 @@ exports.createExam = async (req, res, next) => {
     // Validate and normalize questions
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      
-      if (!q.questionText || !q.options || q. options.length < 2) {
+
+      if (!q.questionText || !q.options || q.options.length < 2) {
         return res.status(400).json({
           success: false,
           message: `Question ${i + 1}:  Invalid format.  Must have question text and at least 2 options`
@@ -103,8 +103,8 @@ exports.createExam = async (req, res, next) => {
       }
 
       // ✅ Ensure marks is a valid number
-      if (! q.marks || isNaN(q.marks) || parseInt(q.marks) < 1) {
-        questions[i]. marks = 1;
+      if (!q.marks || isNaN(q.marks) || parseInt(q.marks) < 1) {
+        questions[i].marks = 1;
       } else {
         questions[i].marks = parseInt(q.marks);
       }
@@ -119,7 +119,7 @@ exports.createExam = async (req, res, next) => {
     }
 
     // Validate students exist
-    const students = await User. find({
+    const students = await User.find({
       _id: { $in: allowedStudents },
       role: 'student',
       isActive: true
@@ -141,7 +141,7 @@ exports.createExam = async (req, res, next) => {
     console.log('📊 Calculated total marks:', totalMarks);
 
     // ✅ Validate total marks
-    if (! totalMarks || totalMarks === 0) {
+    if (!totalMarks || totalMarks === 0) {
       return res.status(400).json({
         success: false,
         message: 'Total marks must be greater than 0'
@@ -166,16 +166,16 @@ exports.createExam = async (req, res, next) => {
 
     // ✅ Create exam with totalMarks explicitly included
     const exam = await Exam.create({
-      title: title. trim(),
-      description: description?. trim() || '',
-      course: course. trim(),
+      title: title.trim(),
+      description: description?.trim() || '',
+      course: course.trim(),
       duration: parseInt(duration),
       totalMarks: totalMarks, // ✅ CRITICAL: Include totalMarks
       passingMarks: passingMarksInt,
-      questions:  questions,
+      questions: questions,
       scheduledDate: new Date(scheduledDate),
       endDate: new Date(endDate),
-      allowedStudents:  allowedStudents,
+      allowedStudents: allowedStudents,
       proctoringSettings: proctoringSettings || {
         enableFaceDetection: true,
         enableMultipleFaceDetection: true,
@@ -192,7 +192,7 @@ exports.createExam = async (req, res, next) => {
           deduction: 0.25
         }
       },
-      createdBy: req. user. id
+      createdBy: req.user.id
     });
 
     console.log('✅ Exam created successfully:', exam._id);
@@ -205,7 +205,7 @@ exports.createExam = async (req, res, next) => {
   } catch (error) {
     console.error('❌ Create exam error:', error);
     console.error('Error message:', error.message);
-    
+
     // Handle validation errors
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
@@ -214,7 +214,7 @@ exports.createExam = async (req, res, next) => {
         message: messages.join(', ')
       });
     }
-    
+
     // Generic error response
     return res.status(500).json({
       success: false,
@@ -229,7 +229,7 @@ exports.createExam = async (req, res, next) => {
 exports.getMyExams = async (req, res, next) => {
   try {
     console.log('📋 Fetching exams for faculty:', req.user.id);
-    
+
     const exams = await Exam.find({ createdBy: req.user.id })
       .populate('allowedStudents', 'name email studentId')
       .sort({ createdAt: -1 })
@@ -246,7 +246,7 @@ exports.getMyExams = async (req, res, next) => {
     console.error('❌ Get my exams error:', error);
     console.error('Error details:', error.message);
     console.error('Error stack:', error.stack);
-    
+
     res.status(500).json({
       success: false,
       message: 'hey hello Server error while fetching exams',
@@ -260,7 +260,7 @@ exports.getMyExams = async (req, res, next) => {
 // @access  Private (Faculty)
 exports.getExam = async (req, res, next) => {
   try {
-    const exam = await Exam. findById(req.params.examId)
+    const exam = await Exam.findById(req.params.examId)
       .populate('allowedStudents', 'name email studentId')
       .populate('createdBy', 'name email');
 
@@ -287,7 +287,7 @@ exports.getExam = async (req, res, next) => {
     console.error('Get exam error:', error);
     res.status(500).json({
       success: false,
-      message:  'Server error while fetching exam'
+      message: 'Server error while fetching exam'
     });
   }
 };
@@ -312,7 +312,7 @@ exports.updateExam = async (req, res, next) => {
       });
     }
 
-    if (exam.createdBy. toString() !== facultyId) {
+    if (exam.createdBy.toString() !== facultyId) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this exam'
@@ -338,9 +338,9 @@ exports.updateExam = async (req, res, next) => {
 
     // ✅ Validate passing marks manually
     if (Number(req.body.passingMarks) > calculatedTotalMarks) {
-      return res. status(400).json({
+      return res.status(400).json({
         success: false,
-        message:  `Passing marks (${req.body.passingMarks}) cannot exceed total marks (${calculatedTotalMarks})`
+        message: `Passing marks (${req.body.passingMarks}) cannot exceed total marks (${calculatedTotalMarks})`
       });
     }
 
@@ -371,7 +371,7 @@ exports.updateExam = async (req, res, next) => {
     });
   } catch (error) {
     console.error('❌ Update exam error:', error);
-    
+
     // Better error handling
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
@@ -395,7 +395,7 @@ exports.updateExam = async (req, res, next) => {
 // @access  Private (Faculty)
 exports.toggleExamStatus = async (req, res, next) => {
   try {
-    const exam = await Exam. findById(req.params.examId);
+    const exam = await Exam.findById(req.params.examId);
 
     if (!exam) {
       return res.status(404).json({
@@ -412,19 +412,19 @@ exports.toggleExamStatus = async (req, res, next) => {
       });
     }
 
-    exam.isActive = !exam. isActive;
-    await exam. save();
+    exam.isActive = !exam.isActive;
+    await exam.save();
 
     res.status(200).json({
       success: true,
-      message: `Exam ${exam.isActive ?  'activated' : 'deactivated'} successfully`,
+      message: `Exam ${exam.isActive ? 'activated' : 'deactivated'} successfully`,
       isActive: exam.isActive
     });
   } catch (error) {
     console.error('Toggle exam status error:', error);
     res.status(500).json({
       success: false,
-      message:  'Server error while toggling exam status'
+      message: 'Server error while toggling exam status'
     });
   }
 };
@@ -444,7 +444,7 @@ exports.getExamSessions = async (req, res, next) => {
     }
 
     // Check ownership
-    if (exam.createdBy. toString() !== req.user.id && req.user.role !== 'admin') {
+    if (exam.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
@@ -466,14 +466,14 @@ exports.getExamSessions = async (req, res, next) => {
       passRate: 0
     };
 
-    const completedSessions = sessions.filter(s => 
+    const completedSessions = sessions.filter(s =>
       s.status === 'completed' || s.status === 'auto-submitted'
     );
 
     if (completedSessions.length > 0) {
       stats.averageScore = completedSessions.reduce((sum, s) => sum + (s.score || 0), 0) / completedSessions.length;
       const passedCount = completedSessions.filter(s => s.result === 'pass').length;
-      stats.passRate = (passedCount / completedSessions. length) * 100;
+      stats.passRate = (passedCount / completedSessions.length) * 100;
     }
 
     res.status(200).json({
@@ -485,7 +485,7 @@ exports.getExamSessions = async (req, res, next) => {
     console.error('Get exam sessions error:', error);
     res.status(500).json({
       success: false,
-      message:  'Server error while fetching exam sessions'
+      message: 'Server error while fetching exam sessions'
     });
   }
 };
@@ -495,7 +495,7 @@ exports.getExamSessions = async (req, res, next) => {
 // @access  Private (Faculty)
 exports.getSessionDetails = async (req, res, next) => {
   try {
-    const session = await ExamSession.findById(req.params. sessionId)
+    const session = await ExamSession.findById(req.params.sessionId)
       .populate('student', 'name email studentId')
       .populate('exam')
       .populate('violations');
@@ -508,7 +508,7 @@ exports.getSessionDetails = async (req, res, next) => {
     }
 
     // Check ownership of exam
-    if (session.exam.createdBy.toString() !== req.user.id && req. user.role !== 'admin') {
+    if (session.exam.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
@@ -533,7 +533,7 @@ exports.getSessionDetails = async (req, res, next) => {
 // @access  Private (Faculty)
 exports.deleteExam = async (req, res, next) => {
   try {
-    const exam = await Exam.findById(req. params.examId);
+    const exam = await Exam.findById(req.params.examId);
 
     if (!exam) {
       return res.status(404).json({
@@ -543,7 +543,7 @@ exports.deleteExam = async (req, res, next) => {
     }
 
     // Check ownership
-    if (exam.createdBy.toString() !== req.user.id && req. user.role !== 'admin') {
+    if (exam.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized'
@@ -563,7 +563,7 @@ exports.deleteExam = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message:  'Exam deleted successfully'
+      message: 'Exam deleted successfully'
     });
   } catch (error) {
     console.error('Delete exam error:', error);

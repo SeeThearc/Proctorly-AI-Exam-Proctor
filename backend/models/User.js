@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Email is required'],
     unique: true,
     lowercase: true,
-    trim:  true,
+    trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email']
   },
   password: {
@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema({
     trim: true
   },
   facultyId: {
-    type:  String,
+    type: String,
     unique: true,
     sparse: true,
     trim: true
@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema({
     type: Array,
     default: null
   },
+  faceSnapshot: {
+    type: String,  // base64 JPEG captured at registration time
+    default: null
+  },
   profileImage: {
     type: String,
     default: null
@@ -58,7 +62,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  updatedAt:  {
+  updatedAt: {
     type: Date,
     default: Date.now
   }
@@ -67,33 +71,28 @@ const userSchema = new mongoose.Schema({
 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (! this.isModified('password')) {
-    return next();
-  }
-  
-  try {
-    const salt = await bcrypt.genSalt(12);
-    this.password = await bcrypt.hash(this.password, salt);
-    //next();
-  } catch (error) {
-    next(error);
-  }
+// NOTE: In Mongoose v7+, async pre-hooks MUST NOT take `next` as a parameter.
+// Errors are propagated by throwing; returning ends the hook successfully.
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
+
+  const salt = await bcrypt.genSalt(12);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   try {
-    return await bcrypt. compare(candidatePassword, this. password);
+    return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
     throw new Error('Password comparison failed');
   }
 };
 
 // Update timestamp before update
-userSchema.pre('findOneAndUpdate', function(next) {
+// No next() — Mongoose v7+ handles hook completion via return value
+userSchema.pre('findOneAndUpdate', function () {
   this.set({ updatedAt: Date.now() });
-  //next();
 });
 
 module.exports = mongoose.model('User', userSchema);

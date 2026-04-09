@@ -11,14 +11,16 @@ class SocketService {
       return;
     }
 
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    // Strip /api suffix if present — socket server lives at the root URL
+    const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const socketUrl = rawUrl.replace(/\/api\/?$/, '');
 
     this.socket = io(socketUrl, {
       auth: { token },
       transports: ['websocket'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts:  5
+      reconnectionAttempts: 5
     });
 
     this.socket.on('connect', () => {

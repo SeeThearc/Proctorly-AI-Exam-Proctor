@@ -3,14 +3,6 @@ import mlService from '../services/mlService';
 import socketService from '../services/socketService';
 import api from '../services/api';
 
-/**
- * Main proctoring hook that handles: 
- * - Webcam initialization
- * - Face detection monitoring
- * - Violation logging
- * - Warning system
- * - Auto-submission
- */
 const useProctoring = (sessionId, proctoringSettings) => {
   const [warningCount, setWarningCount] = useState(0);
   const [isMonitoring, setIsMonitoring] = useState(false);
@@ -20,364 +12,237 @@ const useProctoring = (sessionId, proctoringSettings) => {
   const [cameraReady, setCameraReady] = useState(false);
 
   const videoRef = useRef(null);
-  const socketRef = useRef(null);
   const lastViolationRef = useRef(null);
-  const monitoringIntervalRef = useRef(null);
+  const streamRef = useRef(null);
 
-  /**
-   * Initialize webcam
-   */
+  // ── Webcam init ────────────────────────────────────────────────────────────
   const initializeWebcam = useCallback(async () => {
-  try {
-    console.log('🎥 Initializing webcam...');
-    console.log('📹 VideoRef status:', {
-      exists: !!videoRef,
-      current: !!videoRef?. current,
-      element: videoRef?.current
-    });
-
-    // ✅ Simple check - if no videoRef, fail gracefully
-    if (!videoRef || !videoRef.current) {
-      console.error('❌ videoRef. current is null! ');
-      throw new Error('Video element not found');
-    }
-
-    console.log('✅ Video element found:', videoRef.current);
-
-    const mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: 'user'
-      },
-      audio: false
-    });
-
-    console.log('✅ Media stream obtained');
-
-    setStream(mediaStream);
-    
-    console.log('📺 Setting video source.. .');
-    videoRef.current. srcObject = mediaStream;
-    
-    // Set video attributes
-    videoRef.current.muted = true;
-    videoRef.current.playsInline = true;
-    videoRef.current.autoplay = true;
-
-    // Wait for video to be ready
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        console.error('❌ Video loading timeout');
-        reject(new Error('Video loading timeout'));
-      }, 10000);
-
-      const onCanPlay = async () => {
-        console.log('✅ Video can play');
-        clearTimeout(timeout);
-        
-        try {
-          await videoRef.current.play();
-          console.log('✅ Video playing');
-          console.log('📐 Video dimensions:', {
-            width: videoRef.current.videoWidth,
-            height: videoRef.current.videoHeight
-          });
-          
-          setCameraReady(true);
-          console.log('✅ Webcam initialized successfully');
-          
-          videoRef.current.removeEventListener('canplay', onCanPlay);
-          videoRef.current.removeEventListener('error', onError);
-          
-          resolve(true);
-        } catch (playError) {
-          console.error('❌ Error playing video:', playError);
-          clearTimeout(timeout);
-          reject(playError);
-        }
-      };
-
-      const onError = (err) => {
-        console.error('❌ Video element error:', err);
-        clearTimeout(timeout);
-        videoRef.current.removeEventListener('canplay', onCanPlay);
-        videoRef.current.removeEventListener('error', onError);
-        reject(new Error('Video element error'));
-      };
-
-      videoRef.current.addEventListener('canplay', onCanPlay, { once: true });
-      videoRef.current.addEventListener('error', onError, { once: true });
-
-      videoRef.current.load();
-    });
-
-  } catch (error) {
-    console.error('❌ Error accessing webcam:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message
-    });
-    
-    let errorMessage = 'Failed to access camera';
-    if (error.name === 'NotAllowedError') {
-      errorMessage = 'Camera permission denied.  Please allow camera access.';
-    } else if (error.name === 'NotFoundError') {
-      errorMessage = 'No camera found. Please connect a camera.';
-    } else if (error.name === 'NotReadableError') {
-      errorMessage = 'Camera is already in use by another application.';
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    setError(errorMessage);
-    alert(errorMessage);
-    return false;
-  }
-}, []);
-
-  /**
-   * Log violation to backend
-   */
-  const logViolation = useCallback(async (violationType, severity = 'medium', metadata = {}) => {
-    if (!sessionId) {
-      console.error('No session ID provided');
-      return;
-    }
-
-    // Prevent duplicate violations within 2 seconds
-    const now = Date.now();
-    const lastViolationKey = `${violationType}-${now}`;
-    
-    if (lastViolationRef.current && 
-        lastViolationRef. current.type === violationType &&
-        (now - lastViolationRef. current.timestamp) < 2000) {
-      console.log('⏭️ Skipping duplicate violation');
-      return;
-    }
-
-    lastViolationRef.current = {
-      type: violationType,
-      timestamp: now
-    };
-
     try {
-      console.log(`⚠️ Logging violation:  ${violationType}`);
+      console.log('🎥 Requesting webcam...');
+      if (!videoRef.current) throw new Error('videoRef not mounted yet');
 
-      // Capture snapshot
-      const snapshot = videoRef.current ?  mlService.captureSnapshot(videoRef.current) : null;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
 
-      const response = await api.post(`/proctoring/violation/${sessionId}`, {
-        violationType,
-        severity,
-        snapshot,
-        metadata:  {
-          timestamp: new Date().toISOString(),
-          ...metadata
-        }
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        audio: false,
       });
 
-      if (response.data.success) {
-        const newWarningCount = response.data.warningCount;
-        setWarningCount(newWarningCount);
-        setViolations(prev => [...prev, response.data.violation]);
-
-        // Emit to socket for real-time monitoring
-        if (socketService.isConnected()) {
-          socketService.emitViolation({
-            sessionId,
-            violationType,
-            severity,
-            warningCount: newWarningCount
-          });
-        }
-
-        console.log(`📊 Warning count: ${newWarningCount}/${proctoringSettings?. warningThreshold || 3}`);
-
-        // Auto-submit if threshold reached
-        if (response.data.autoSubmitted) {
-          console.log('🛑 Auto-submit triggered');
-          handleAutoSubmit();
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error logging violation:', error);
-    }
-  }, [sessionId, proctoringSettings]);
-
-  /**
-   * Handle auto-submit
-   */
-  const handleAutoSubmit = useCallback(() => {
-    console.log('🚨 Maximum warnings reached - Auto-submitting exam');
-    
-    // Stop monitoring
-    stopProctoring();
-    
-    // Emit custom event that exam component can listen to
-    window.dispatchEvent(new CustomEvent('auto-submit-exam'));
-  }, []);
-
-  /**
-   * Start proctoring
-   */
-  const startProctoring = useCallback(async () => {
-    try {
-      console.log('🚀 Starting proctoring...');
-
-      // Initialize webcam
-      const webcamInitialized = await initializeWebcam();
-      if (!webcamInitialized) {
-        console.error('❌ Webcam initialization failed');
-        return false;
-      }
-
-      console.log('✅ Webcam initialized, loading ML models...');
-
-      // Load ML models
-      console.log('📥 Loading ML models...');
-      const modelsLoaded = await mlService.loadModels();
-      if (!modelsLoaded) {
-        console.warn('⚠️ ML models failed to load, continuing without face detection');
-      } else {
-        console.log('✅ ML models loaded');
-      }
-
-      // Get registered face descriptor from user context/API
-      const storedDescriptor = null; // TODO: Load from user profile
-      if (storedDescriptor) {
-        mlService.setFaceDescriptor(storedDescriptor);
-      }
-
-      // ✅ Start ML monitoring with window handlers
-      if (modelsLoaded) {
-        console.log('👁️ Starting ML monitoring...');
-        mlService.startMonitoring(videoRef.current, {
-          onNoFace: () => {
-            if (proctoringSettings?.enableFaceDetection) {
-              // ✅ Use window handler if available (for modal display)
-              if (window.proctoringViolationHandlers?. onNoFace) {
-                window.proctoringViolationHandlers.onNoFace();
-              } else {
-                // Fallback to direct logging
-                logViolation('no-face-detected', 'high');
-              }
-            }
-          },
-          onMultipleFaces: (count) => {
-            if (proctoringSettings?.enableMultipleFaceDetection) {
-              // ✅ Use window handler if available (for modal display)
-              if (window.proctoringViolationHandlers?.onMultipleFaces) {
-                window.proctoringViolationHandlers.onMultipleFaces(count);
-              } else {
-                // Fallback to direct logging
-                logViolation('multiple-faces', 'high', { faceCount: count });
-              }
-            }
-          },
-          onFaceMismatch: () => {
-            if (window.proctoringViolationHandlers?.onFaceMismatch) {
-              window.proctoringViolationHandlers.onFaceMismatch();
-            } else {
-              logViolation('face-not-matching', 'high');
-            }
-          },
-          onHeadMovement: (direction) => {
-            if (proctoringSettings?.enableHeadMovement) {
-              // ✅ Use window handler if available (for modal display)
-              if (window.proctoringViolationHandlers?.onHeadMovement) {
-                window. proctoringViolationHandlers.onHeadMovement(direction);
-              } else {
-                // Fallback to direct logging
-                logViolation('excessive-head-movement', 'medium', { direction });
-              }
-            }
-          },
-          onSuccess: () => {
-            // All checks passed - do nothing
-          },
-          onError: (error) => {
-            console.error('ML monitoring error:', error);
-          }
-        });
-      } else {
-        console.log('⚠️ Skipping ML monitoring - models not loaded');
-      }
-
-      // Connect to socket
-      const token = localStorage.getItem('token');
-      if (token && ! socketService.isConnected()) {
-        console.log('🔌 Connecting to socket...');
-        socketService.connect(token);
-      }
-
-      if (sessionId) {
-        console.log('🚪 Joining session:', sessionId);
-        socketService. joinSession(sessionId);
-      }
-
-      setIsMonitoring(true);
-      console.log('✅ Proctoring started successfully');
+      streamRef.current = mediaStream;
+      setStream(mediaStream);
+      await _attachAndPlay(mediaStream);
+      setCameraReady(true);
       return true;
-    } catch (error) {
-      console.error('❌ Error starting proctoring:', error);
-      console.error('Error stack:', error.stack);
-      setError('Failed to start proctoring:  ' + error.message);
+    } catch (err) {
+      const msg =
+        err.name === 'NotAllowedError' ? 'Camera permission denied.' :
+        err.name === 'NotFoundError'   ? 'No camera found.' :
+        err.name === 'NotReadableError'? 'Camera in use by another app.' :
+        err.message || 'Camera error';
+      console.error('❌ Webcam error:', msg);
+      setError(msg);
       return false;
     }
-  }, [sessionId, proctoringSettings, initializeWebcam, logViolation]);
+  }, []);
 
-  /**
-   * Stop proctoring
-   */
-  const stopProctoring = useCallback(() => {
-    console.log('🛑 Stopping proctoring...');
+  // Internal helper — attaches stream to current videoRef and plays it
+  const _attachAndPlay = async (mediaStream) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.srcObject = mediaStream;
+    v.muted = true;
+    v.playsInline = true;
+    try { await v.play(); } catch (e) { console.warn('play():', e.message); }
+  };
 
-    // Stop ML monitoring
-    mlService.stopMonitoring();
+  // Wait until the video element is truly playing (readyState >= 2, width > 0)
+  const _waitForVideoReady = async (maxMs = 8000) => {
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+      const v = videoRef.current;
+      if (v && v.readyState >= 2 && v.videoWidth > 0) {
+        // Ensure it's playing
+        if (v.paused) {
+          try { await v.play(); } catch (_) {}
+        }
+        if (!v.paused) {
+          console.log(`✅ Video ready — readyState:${v.readyState} width:${v.videoWidth} paused:${v.paused}`);
+          return true;
+        }
+      }
+      await new Promise(r => setTimeout(r, 150));
+    }
+    console.warn('⚠️ Video readiness timeout — proceeding anyway');
+    return false;
+  };
 
-    // Stop webcam stream
-    if (stream) {
-      stream.getTracks().forEach(track => {
-        track.stop();
-        console.log('📷 Webcam track stopped');
+  // ── Violation logger ───────────────────────────────────────────────────────
+  const logViolation = useCallback(async (violationType, severity = 'medium', metadata = {}) => {
+    if (!sessionId) return;
+
+    const now = Date.now();
+    if (
+      lastViolationRef.current &&
+      lastViolationRef.current.type === violationType &&
+      now - lastViolationRef.current.timestamp < 3000
+    ) return;
+    lastViolationRef.current = { type: violationType, timestamp: now };
+
+    try {
+      const snapshot = videoRef.current ? mlService.captureSnapshot(videoRef.current) : null;
+      const response = await api.post(`/proctoring/violation/${sessionId}`, {
+        violationType, severity, snapshot,
+        metadata: { timestamp: new Date().toISOString(), ...metadata },
       });
+      if (response.data.success) {
+        setWarningCount(response.data.warningCount);
+        setViolations(prev => [...prev, response.data.violation]);
+        if (socketService.isConnected()) {
+          socketService.emitViolation({ sessionId, violationType, severity, warningCount: response.data.warningCount });
+        }
+        if (response.data.autoSubmitted) {
+          window.dispatchEvent(new CustomEvent('auto-submit-exam'));
+        }
+      }
+    } catch (err) {
+      console.error('❌ logViolation error:', err);
+    }
+  }, [sessionId]);
+
+  // ── Tab switch ─────────────────────────────────────────────────────────────
+  const handleTabSwitch = useCallback(() => {
+    if (proctoringSettings?.enableTabSwitch && document.hidden) {
+      window.proctoringViolationHandlers?.onTabSwitch
+        ? window.proctoringViolationHandlers.onTabSwitch()
+        : logViolation('tab-switch', 'high');
+    }
+  }, [proctoringSettings, logViolation]);
+
+  const handleWindowBlur = useCallback(() => {
+    if (proctoringSettings?.enableTabSwitch) {
+      window.proctoringViolationHandlers?.onTabSwitch
+        ? window.proctoringViolationHandlers.onTabSwitch()
+        : logViolation('tab-switch', 'high');
+    }
+  }, [proctoringSettings, logViolation]);
+
+  // ── Start proctoring ───────────────────────────────────────────────────────
+  const startProctoring = useCallback(async () => {
+    try {
+      console.log('🚀 startProctoring called');
+      console.log('   videoRef.current:', videoRef.current);
+      console.log('   streamRef.current:', streamRef.current);
+
+      // Attach the existing stream to whatever video element is currently mounted
+      if (streamRef.current && videoRef.current) {
+        console.log('🔗 Attaching existing stream to current video element');
+        await _attachAndPlay(streamRef.current);
+      } else {
+        console.log('📷 No existing stream — initializing webcam');
+        const ok = await initializeWebcam();
+        if (!ok) { console.error('❌ Webcam init failed'); return false; }
+      }
+
+      // 🔑 KEY: poll until video is genuinely playing before starting ML
+      const ready = await _waitForVideoReady(8000);
+      console.log('Video ready for ML:', ready);
+
+      // Load ML models
+      const modelsLoaded = await mlService.loadModels();
+      console.log('ML models loaded:', modelsLoaded);
+
+      // Load face descriptor
+      try {
+        const meRes = await api.get('/auth/me');
+        const descriptor = meRes.data?.user?.faceDescriptor;
+        if (descriptor?.length) {
+          mlService.setFaceDescriptor(descriptor);
+          console.log('✅ Face descriptor set');
+        }
+      } catch (e) { console.warn('Face descriptor load failed:', e.message); }
+
+      // Start ML monitoring with a getter so it always gets the live DOM node
+      if (modelsLoaded) {
+        mlService.startMonitoring(() => videoRef.current, {
+          onNoFace: () => {
+            window.proctoringViolationHandlers?.onNoFace
+              ? window.proctoringViolationHandlers.onNoFace()
+              : logViolation('no-face-detected', 'high');
+          },
+          onMultipleFaces: (count) => {
+            window.proctoringViolationHandlers?.onMultipleFaces
+              ? window.proctoringViolationHandlers.onMultipleFaces(count)
+              : logViolation('multiple-faces', 'high', { faceCount: count });
+          },
+          onFaceMismatch: () => {
+            window.proctoringViolationHandlers?.onFaceMismatch
+              ? window.proctoringViolationHandlers.onFaceMismatch()
+              : logViolation('face-not-matching', 'high');
+          },
+          onHeadMovement: (direction) => {
+            window.proctoringViolationHandlers?.onHeadMovement
+              ? window.proctoringViolationHandlers.onHeadMovement(direction)
+              : logViolation('excessive-head-movement', 'medium', { direction });
+          },
+          onSuccess: () => {},
+          onError: (err) => console.error('ML loop error:', err),
+        });
+        console.log('✅ ML monitoring started');
+      }
+
+      // Tab-switch listeners
+      document.addEventListener('visibilitychange', handleTabSwitch);
+      window.addEventListener('blur', handleWindowBlur);
+
+      // Socket
+      const token = localStorage.getItem('token');
+      if (token && !socketService.isConnected()) socketService.connect(token);
+      if (sessionId) socketService.joinSession(sessionId);
+
+      setIsMonitoring(true);
+      return true;
+    } catch (err) {
+      console.error('❌ startProctoring error:', err);
+      setError('Failed to start proctoring: ' + err.message);
+      return false;
+    }
+  }, [sessionId, proctoringSettings, initializeWebcam, logViolation, handleTabSwitch, handleWindowBlur]);
+
+  // ── Stop proctoring ────────────────────────────────────────────────────────
+  const stopProctoring = useCallback(() => {
+    mlService.stopMonitoring();
+    document.removeEventListener('visibilitychange', handleTabSwitch);
+    window.removeEventListener('blur', handleWindowBlur);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
       setStream(null);
     }
-
-    // Clear video element
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
+    if (videoRef.current) videoRef.current.srcObject = null;
     setIsMonitoring(false);
     setCameraReady(false);
-    console.log('✅ Proctoring stopped');
-  }, [stream]);
+    console.log('🛑 Proctoring stopped');
+  }, [handleTabSwitch, handleWindowBlur]);
 
-  /**
-   * Cleanup on unmount
-   */
+  // ── Cleanup ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Only cleanup when component actually unmounts, not on every render
     return () => {
-      console.log('🧹 useProctoring cleanup - component unmounting');
-      stopProctoring();
+      mlService.stopMonitoring();
+      document.removeEventListener('visibilitychange', handleTabSwitch);
+      window.removeEventListener('blur', handleWindowBlur);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
     };
-  }, []); // Empty dependency array - only run on mount/unmount
+  }, []);
 
   return {
     videoRef,
-    warningCount,
-    isMonitoring,
-    violations,
-    stream,
-    error,
-    cameraReady,
-    startProctoring,
-    stopProctoring,
-    logViolation,
-    initializeWebcam
+    warningCount, isMonitoring, violations, stream, error, cameraReady,
+    startProctoring, stopProctoring, logViolation, initializeWebcam,
   };
 };
 

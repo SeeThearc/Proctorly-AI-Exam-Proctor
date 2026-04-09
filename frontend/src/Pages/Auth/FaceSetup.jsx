@@ -84,22 +84,26 @@ const FaceSetup = () => {
 
       const faceDescriptor = await mlService.captureFaceDescriptor(videoRef.current);
 
-      if (! faceDescriptor) {
+      if (!faceDescriptor) {
         setStatus('error');
         setMessage('No face detected. Please ensure your face is clearly visible and try again.');
         return;
       }
 
+      // Capture a reference snapshot image at the same moment
+      const faceSnapshot = mlService.captureSnapshot(videoRef.current);
+
       setMessage('Saving face data...');
 
       const response = await api.put('/auth/face-descriptor', {
-        faceDescriptor
+        faceDescriptor,
+        faceSnapshot  // save the reference photo alongside the descriptor
       });
 
-      if (response. data.success) {
+      if (response.data.success) {
         updateUser(response.data.user);
         setStatus('success');
-        setMessage('Face registered successfully!  Redirecting.. .');
+        setMessage('Face registered successfully! Redirecting...');
 
         if (stream) {
           stream.getTracks().forEach(track => track.stop());

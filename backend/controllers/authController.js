@@ -182,7 +182,7 @@ exports.getMe = async (req, res, next) => {
 // @access  Private
 exports.updateFaceDescriptor = async (req, res, next) => {
   try {
-    const { faceDescriptor } = req.body;
+    const { faceDescriptor, faceSnapshot } = req.body;
 
     if (!faceDescriptor || !Array.isArray(faceDescriptor)) {
       return res.status(400).json({
@@ -191,9 +191,14 @@ exports.updateFaceDescriptor = async (req, res, next) => {
       });
     }
 
+    const updateData = { faceDescriptor };
+    if (faceSnapshot && typeof faceSnapshot === 'string') {
+      updateData.faceSnapshot = faceSnapshot;
+    }
+
     const user = await User.findByIdAndUpdate(
-      req. user.id,
-      { faceDescriptor },
+      req.user.id,
+      updateData,
       { new: true, runValidators: true }
     ).select('-password');
 
@@ -206,7 +211,7 @@ exports.updateFaceDescriptor = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Face descriptor updated successfully',
+      message: 'Face data updated successfully',
       user
     });
   } catch (error) {

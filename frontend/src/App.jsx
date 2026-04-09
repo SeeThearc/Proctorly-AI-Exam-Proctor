@@ -145,7 +145,7 @@ function App() {
 
           {/* Default redirect based on role */}
           <Route path="/" element={<Navigate to="/login" />} />
-          
+
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>

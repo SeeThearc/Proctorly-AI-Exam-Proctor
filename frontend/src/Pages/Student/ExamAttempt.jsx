@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import mlService from '../../services/mlService';
 import socketService from '../../services/socketService';
 import useProctoring from '../../hooks/useProctoring';
 import useFullscreen from '../../hooks/useFullscreen';
@@ -23,7 +24,14 @@ const ExamAttempt = () => {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [examStarted, setExamStarted] = useState(false);
 
-  // ✅ NEW:  Violation modal state
+  // ── Face verification state ─────────────────────────────────────────────
+  const [faceVerified, setFaceVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
+  const [referenceSnapshot, setReferenceSnapshot] = useState(null); // stored photo from DB
+  const [cameraInitialized, setCameraInitialized] = useState(false);
+
+  // ── Violation modal state ────────────────────────────────────────────────
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [violationMessage, setViolationMessage] = useState('');
   const [violationType, setViolationType] = useState('');
@@ -31,49 +39,44 @@ const ExamAttempt = () => {
 
   const autoSubmitRef = useRef(false);
 
-  // Initialize proctoring
+  // Initialize proctoring hook
   const {
     videoRef,
     warningCount,
     violations,
+    stream,
     startProctoring,
     stopProctoring,
-    logViolation
-  } = useProctoring(session?._id, exam?. proctoringSettings);
-
-  // ✅ NEW: Custom fullscreen handler with violation detection
-  const handleFullscreenViolation = async () => {
-    if (!examStarted || isProcessingViolation) return;
-
-    setIsProcessingViolation(true);
-    setViolationType('fullscreen-exit');
-    setViolationMessage('You exited fullscreen mode!  Please click OK to return to fullscreen.');
-    setShowViolationModal(true);
-  };
+    logViolation,
+    initializeWebcam,
+  } = useProctoring(session?._id, exam?.proctoringSettings);
 
   // Fullscreen management
+  const handleFullscreenViolation = async () => {
+    if (!examStarted || isProcessingViolation) return;
+    setIsProcessingViolation(true);
+    setViolationType('fullscreen-exit');
+    setViolationMessage('You exited fullscreen mode! Please click OK to return to fullscreen.');
+    setShowViolationModal(true);
+  };
   const { isFullscreen, enterFullscreen } = useFullscreen(handleFullscreenViolation);
 
-  // ✅ NEW:  Monitor fullscreen during exam
+  // ── Monitor fullscreen during exam ────────────────────────────────────────
   useEffect(() => {
-    if (! examStarted) return;
-
+    if (!examStarted) return;
     const checkFullscreen = () => {
-      const isCurrentlyFullscreen = ! !(
+      const isCurrentlyFullscreen = !!(
         document.fullscreenElement ||
         document.webkitFullscreenElement ||
-        document. msFullscreenElement
+        document.msFullscreenElement
       );
-
-      if (! isCurrentlyFullscreen && examStarted && ! isProcessingViolation) {
+      if (!isCurrentlyFullscreen && examStarted && !isProcessingViolation) {
         handleFullscreenViolation();
       }
     };
-
     document.addEventListener('fullscreenchange', checkFullscreen);
     document.addEventListener('webkitfullscreenchange', checkFullscreen);
     document.addEventListener('msfullscreenchange', checkFullscreen);
-
     return () => {
       document.removeEventListener('fullscreenchange', checkFullscreen);
       document.removeEventListener('webkitfullscreenchange', checkFullscreen);
@@ -81,15 +84,14 @@ const ExamAttempt = () => {
     };
   }, [examStarted, isProcessingViolation]);
 
-  // Fetch exam and session
+  // ── Fetch exam and initialize session ─────────────────────────────────────
   useEffect(() => {
     initializeExam();
   }, [examId]);
 
-  // Timer countdown
+  // ── Timer countdown ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (! examStarted || timeRemaining <= 0) return;
-
+    if (!examStarted || timeRemaining <= 0) return;
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
@@ -99,24 +101,17 @@ const ExamAttempt = () => {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [examStarted, timeRemaining]);
 
-  // Listen for auto-submit event
+  // ── Auto-submit event listener ─────────────────────────────────────────────
   useEffect(() => {
-    const handleAutoSubmitEvent = () => {
-      handleAutoSubmit('Maximum warnings reached');
-    };
-
-    window.addEventListener('auto-submit-exam', handleAutoSubmitEvent);
-
-    return () => {
-      window.removeEventListener('auto-submit-exam', handleAutoSubmitEvent);
-    };
+    const handler = () => handleAutoSubmit('Maximum warnings reached');
+    window.addEventListener('auto-submit-exam', handler);
+    return () => window.removeEventListener('auto-submit-exam', handler);
   }, []);
 
-  // Cleanup on unmount
+  // ── Cleanup on unmount ─────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       stopProctoring();
@@ -124,153 +119,211 @@ const ExamAttempt = () => {
     };
   }, []);
 
+  // ── Violation handlers (set once exam starts) ──────────────────────────────
+  useEffect(() => {
+    if (!examStarted) return;
+    const handleNoFace = () =>
+      handleProctoringViolation('no-face-detected', '⚠️ No face detected! Please ensure your face is visible in the camera.');
+    const handleMultipleFaces = () =>
+      handleProctoringViolation('multiple-faces', '⚠️ Multiple faces detected! Only you should be visible during the exam.');
+    const handleHeadMovement = (direction) =>
+      handleProctoringViolation('excessive-head-movement', `⚠️ Excessive head movement detected! You are looking ${direction}. Please look at the screen.`);
+    const handleTabSwitch = () =>
+      handleProctoringViolation('tab-switch', '⚠️ Tab switch detected! Do NOT switch tabs or windows during the exam.');
+    const handleFaceMismatch = () =>
+      handleProctoringViolation('face-not-matching', '⚠️ Face mismatch detected! The face in front of the camera does not match your registered face.');
+
+    window.proctoringViolationHandlers = {
+      onNoFace: handleNoFace,
+      onMultipleFaces: handleMultipleFaces,
+      onHeadMovement: handleHeadMovement,
+      onTabSwitch: handleTabSwitch,
+      onFaceMismatch: handleFaceMismatch
+    };
+    return () => { delete window.proctoringViolationHandlers; };
+  }, [examStarted, isProcessingViolation]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // EXAM INIT
+  // ─────────────────────────────────────────────────────────────────────────
   const initializeExam = async () => {
     try {
       setLoading(true);
+      console.log('🚀 Initializing exam, examId:', examId);
 
-      console.log('🚀 Initializing exam.. .');
-      console.log('📝 Exam ID:', examId);
+      const sessionRes = await api.post(`/proctoring/start/${examId}`);
 
-      // Start or resume session
-      console.log('📡 Starting exam session...');
-      
-      try {
-        const sessionRes = await api.post(`/proctoring/start/${examId}`);
-        
-        console.log('✅ Session response:', sessionRes.data);
-        
-        if (! sessionRes.data.success) {
-          // Check if there's a redirect path
-          if (sessionRes.data.redirectTo) {
-            alert(sessionRes.data.message);
-            navigate(sessionRes.data.redirectTo);
-            return;
-          }
-          throw new Error(sessionRes.data.message || 'Failed to start session');
-        }
-
-        const sessionData = sessionRes.data. session;
-        setSession(sessionData);
-
-        console.log('✅ Session created:', sessionData._id);
-
-        // Get exam questions
-        console.log('📖 Fetching questions...');
-        const questionsRes = await api.get(`/proctoring/session/${sessionData._id}/questions`);
-        
-        console.log('✅ Questions response:', questionsRes.data);
-
-        if (!questionsRes.data.success) {
-          throw new Error(questionsRes.data.message || 'Failed to get questions');
-        }
-
-        const examData = questionsRes.data.exam;
-        const questionsData = questionsRes.data.questions;
-        const currentAnswers = questionsRes.data.currentAnswers || [];
-
-        setExam(examData);
-        setQuestions(questionsData);
-        setTimeRemaining(examData.duration * 60);
-
-        console.log('📚 Exam data loaded:', {
-          title: examData.title,
-          duration: examData.duration,
-          questions: questionsData.length
-        });
-
-        // Load existing answers
-        const answersMap = {};
-        currentAnswers.forEach((ans) => {
-          answersMap[ans. questionId] = ans.selectedOption;
-        });
-        setAnswers(answersMap);
-
-        // Connect socket
-        console.log('🔌 Connecting socket...');
-        const token = localStorage.getItem('token');
-        if (token) {
-          socketService.connect(token);
-        }
-
-        setLoading(false);
-        console.log('✅ Exam initialized successfully');
-        
-      } catch (sessionError) {
-        console.error('❌ Session creation error:', sessionError);
-        console.error('❌ Error response:', sessionError.response?.data);
-        
-        // Handle already completed exam
-        if (sessionError.response?.status === 400 && sessionError.response?.data?. redirectTo) {
-          alert(sessionError.response.data.message);
-          navigate(sessionError. response.data.redirectTo);
+      if (!sessionRes.data.success) {
+        if (sessionRes.data.redirectTo) {
+          alert(sessionRes.data.message);
+          navigate(sessionRes.data.redirectTo);
           return;
         }
-        
-        throw sessionError;
+        throw new Error(sessionRes.data.message || 'Failed to start session');
       }
-      
+
+      const sessionData = sessionRes.data.session;
+      setSession(sessionData);
+
+      const questionsRes = await api.get(`/proctoring/session/${sessionData._id}/questions`);
+      if (!questionsRes.data.success) throw new Error(questionsRes.data.message || 'Failed to get questions');
+
+      const examData = questionsRes.data.exam;
+      const questionsData = questionsRes.data.questions;
+      const currentAnswers = questionsRes.data.currentAnswers || [];
+
+      setExam(examData);
+      setQuestions(questionsData);
+      setTimeRemaining(examData.duration * 60);
+
+      const answersMap = {};
+      currentAnswers.forEach((ans) => { answersMap[ans.questionId] = ans.selectedOption; });
+      setAnswers(answersMap);
+
+      // Connect socket
+      const token = localStorage.getItem('token');
+      if (token) socketService.connect(token);
+
+      // Load reference snapshot for display
+      try {
+        const meRes = await api.get('/auth/me');
+        if (meRes.data?.user?.faceSnapshot) {
+          setReferenceSnapshot(meRes.data.user.faceSnapshot);
+        }
+      } catch (_) {}
+
+      setLoading(false);
+
+      // Auto-initialize webcam so the camera preview is live on the pre-exam screen
+      // Do it after a short tick so the video element is rendered first
+      setTimeout(async () => {
+        try {
+          await initializeWebcam();
+          setCameraInitialized(true);
+        } catch (e) {
+          console.warn('Could not auto-init webcam:', e.message);
+        }
+      }, 300);
+
     } catch (error) {
+      if (error.response?.status === 400 && error.response?.data?.redirectTo) {
+        alert(error.response.data.message);
+        navigate(error.response.data.redirectTo);
+        return;
+      }
       console.error('❌ Error initializing exam:', error);
-      console.error('Error details:', error.response?.data || error.message);
-      
       alert(`Failed to load exam: ${error.response?.data?.message || error.message}`);
       navigate('/student/exams');
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // FACE VERIFICATION  (runs when student clicks "Verify Face")
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleVerifyFace = async () => {
+    try {
+      setVerifying(true);
+      setVerificationError('');
+
+      // 1. Make sure ML models are loaded
+      const modelsLoaded = await mlService.loadModels();
+      if (!modelsLoaded) {
+        setVerificationError('Failed to load face detection models. Please refresh the page.');
+        setVerifying(false);
+        return;
+      }
+
+      // 2. Fetch stored face descriptor
+      const meRes = await api.get('/auth/me');
+      const storedDescriptor = meRes.data?.user?.faceDescriptor;
+
+      if (!storedDescriptor || storedDescriptor.length === 0) {
+        alert('Face registration not found. Please complete face setup before attempting an exam.');
+        navigate('/student/face-setup');
+        return;
+      }
+
+      // 3. Capture live face descriptor
+      if (!videoRef.current) throw new Error('Camera not ready');
+      const liveDescriptor = await mlService.captureFaceDescriptor(videoRef.current);
+
+      if (!liveDescriptor) {
+        setVerificationError('No face detected in camera. Ensure your face is clearly visible in good lighting and try again.');
+        setVerifying(false);
+        return;
+      }
+
+      // 4. Compare
+      const isMatch = mlService.verifyFace(liveDescriptor, storedDescriptor);
+
+      if (isMatch) {
+        console.log('✅ Face verification passed');
+        setFaceVerified(true);
+        setVerificationError('');
+      } else {
+        setVerificationError('❌ Face does not match your registered profile. Only the registered student can attempt this exam.');
+      }
+
+    } catch (err) {
+      console.error('Face verification error:', err);
+      setVerificationError('Verification failed. Please try again. ' + err.message);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // START EXAM  (only reachable after face verified)
+  // ─────────────────────────────────────────────────────────────────────────
   const handleStartExam = async () => {
-  try {
-    console.log('🎬 Starting exam...');
-    
-    // Enter fullscreen first
-    const fullscreenSuccess = await enterFullscreen();
-    if (!fullscreenSuccess) {
-      alert('Please allow fullscreen mode to start the exam');
-      return;
+    try {
+      console.log('🎬 Starting exam...');
+
+      // Step 1: Enter fullscreen
+      const fullscreenSuccess = await enterFullscreen();
+      if (!fullscreenSuccess) {
+        alert('Please allow fullscreen mode to start the exam');
+        return;
+      }
+
+      // Step 2: Flip to exam view FIRST so React mounts the exam-window <video>
+      // element. startProctoring must run AFTER this so ML starts on the new node.
+      setExamStarted(true);
+
+      // Step 3: Wait one animation frame for React to commit the DOM update
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      // Step 4: NOW start proctoring — videoRef.current is the exam-window video
+      const proctoringSuccess = await startProctoring();
+      if (!proctoringSuccess) {
+        alert('Failed to initialize proctoring. Please check camera permissions.');
+        // Don't block the exam — just log
+      }
+
+      if (session?._id) socketService.joinSession(session._id);
+
+    } catch (error) {
+      console.error('❌ Error starting exam:', error);
+      alert('Failed to start exam: ' + error.message);
     }
+  };
 
-    // Start proctoring (this initializes camera)
-    const proctoringSuccess = await startProctoring();
-    if (!proctoringSuccess) {
-      alert('Failed to initialize proctoring.  Please check camera permissions.');
-      return;
-    }
+  // ─────────────────────────────────────────────────────────────────────────
+  // VIOLATION HANDLING
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleProctoringViolation = (type, message) => {
+    if (isProcessingViolation) return;
+    setIsProcessingViolation(true);
+    setViolationType(type);
+    setViolationMessage(message);
+    setShowViolationModal(true);
+  };
 
-    // ✅ Manually attach stream to video element after exam starts
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject;
-      console.log('✅ Got stream with tracks:', stream.getTracks());
-      
-      // Ensure video is playing
-      videoRef.current.muted = true;
-      videoRef.current. playsInline = true;
-      await videoRef.current.play();
-      console.log('✅ Video playing');
-    }
-
-    // Join session room
-    if (session?._id) {
-      socketService.joinSession(session._id);
-    }
-
-    setExamStarted(true);
-  } catch (error) {
-    console.error('❌ Error starting exam:', error);
-    alert('Failed to start exam: ' + error.message);
-  }
-};
-
-  // ✅ NEW: Handle violation acknowledgment
   const handleViolationOk = async () => {
     try {
-      console.log('⚠️ Processing violation:', violationType);
-
-      // Log the violation to backend
       if (violationType && session?._id) {
         await logViolation(violationType);
       }
-
-      // If fullscreen violation, re-enter fullscreen
       if (violationType === 'fullscreen-exit') {
         const success = await enterFullscreen();
         if (!success) {
@@ -278,157 +331,85 @@ const ExamAttempt = () => {
           return;
         }
       }
-
-      // Close modal and reset
       setShowViolationModal(false);
       setViolationMessage('');
       setViolationType('');
       setIsProcessingViolation(false);
-
-      console.log('✅ Violation processed and resolved');
     } catch (error) {
-      console.error('❌ Error processing violation:', error);
+      console.error('Error processing violation:', error);
       setIsProcessingViolation(false);
     }
   };
 
-  // ✅ NEW: Handle proctoring violations from ML service
-  const handleProctoringViolation = (type, message) => {
-    if (isProcessingViolation) return; // Don't show multiple violations at once
-
-    setIsProcessingViolation(true);
-    setViolationType(type);
-    setViolationMessage(message);
-    setShowViolationModal(true);
-  };
-
-  // ✅ NEW: Override proctoring hook with custom violation handler
-  useEffect(() => {
-    if (! examStarted) return;
-
-    // Listen for proctoring violations
-    const handleNoFace = () => {
-      handleProctoringViolation('no-face-detected', '⚠️ No face detected!  Please ensure your face is visible in the camera.');
-    };
-
-    const handleMultipleFaces = () => {
-      handleProctoringViolation('multiple-faces', '⚠️ Multiple faces detected! Only you should be visible during the exam.');
-    };
-
-    const handleHeadMovement = (direction) => {
-      handleProctoringViolation('head-movement', `⚠️ Excessive head movement detected! You are looking ${direction}.  Please look at the screen. `);
-    };
-
-    // Store handlers in window for ML service to call
-    window.proctoringViolationHandlers = {
-      onNoFace: handleNoFace,
-      onMultipleFaces: handleMultipleFaces,
-      onHeadMovement: handleHeadMovement
-    };
-
-    return () => {
-      delete window.proctoringViolationHandlers;
-    };
-  }, [examStarted, isProcessingViolation]);
-
+  // ─────────────────────────────────────────────────────────────────────────
+  // ANSWER + SUBMIT
+  // ─────────────────────────────────────────────────────────────────────────
   const handleAnswerChange = async (questionId, selectedOption) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: selectedOption
-    }));
-
-    // Save to backend
+    setAnswers((prev) => ({ ...prev, [questionId]: selectedOption }));
     try {
-      await api.post(`/proctoring/answer/${session._id}`, {
-        questionId,
-        selectedOption,
-        timeSpent: 0
-      });
+      await api.post(`/proctoring/answer/${session._id}`, { questionId, selectedOption, timeSpent: 0 });
     } catch (error) {
       console.error('Error saving answer:', error);
     }
   };
 
-  const handleSubmit = () => {
-    setShowSubmitModal(true);
-  };
+  const handleSubmit = () => setShowSubmitModal(true);
 
   const confirmSubmit = async () => {
-  if (submitting || autoSubmitRef.current) return;
-
-  try {
-    setSubmitting(true);
-    setShowSubmitModal(false);
-
-    // ✅ Stop proctoring and turn off video BEFORE submitting
-    console.log('🛑 Stopping proctoring before submission.. .');
-    stopProctoring();
-
-    const response = await api.post(`/proctoring/submit/${session._id}`);
-
-    if (response.data.results) {
-      // Results available immediately
-      navigate(`/student/results/${session._id}`);
-    } else {
-      alert('Exam submitted successfully!  Results will be available soon.');
-      navigate('/student/exams');
+    if (submitting || autoSubmitRef.current) return;
+    try {
+      setSubmitting(true);
+      setShowSubmitModal(false);
+      stopProctoring();
+      const response = await api.post(`/proctoring/submit/${session._id}`);
+      if (response.data.results) {
+        navigate(`/student/results/${session._id}`);
+      } else {
+        alert('Exam submitted successfully! Results will be available soon.');
+        navigate('/student/exams');
+      }
+    } catch (error) {
+      console.error('Error submitting exam:', error);
+      alert('Failed to submit exam. Please try again.');
+      setSubmitting(false);
+      startProctoring();
     }
-  } catch (error) {
-    console.error('Error submitting exam:', error);
-    alert('Failed to submit exam. Please try again.');
-    setSubmitting(false);
-    // ✅ Restart proctoring if submission failed
-    startProctoring();
-  }
-};
+  };
 
-const handleAutoSubmit = async (reason) => {
-  if (autoSubmitRef.current || submitting) return;
-  autoSubmitRef.current = true;
+  const handleAutoSubmit = async (reason) => {
+    if (autoSubmitRef.current || submitting) return;
+    autoSubmitRef.current = true;
+    try {
+      stopProctoring();
+      await api.post(`/proctoring/submit/${session._id}`);
+      alert(`Exam auto-submitted: ${reason}`);
+      navigate('/student');
+    } catch (error) {
+      console.error('Error auto-submitting exam:', error);
+      navigate('/student');
+    }
+  };
 
-  try {
-    console.log('🚨 Auto-submitting exam:', reason);
-    
-    // ✅ Stop proctoring and turn off video BEFORE submitting
-    console.log('🛑 Stopping proctoring before auto-submission...');
-    stopProctoring();
-    
-    await api.post(`/proctoring/submit/${session._id}`);
-    
-    alert(`Exam auto-submitted:  ${reason}`);
-    
-    navigate('/student');
-    
-  } catch (error) {
-    console.error('Error auto-submitting exam:', error);
-    alert('Failed to auto-submit exam. Please contact support.');
-    
-    navigate('/student');
-  }
-};
-
+  // ─────────────────────────────────────────────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const getAnsweredCount = () => {
-    return Object.keys(answers).length;
-  };
-
+  const getAnsweredCount = () => Object.keys(answers).length;
   const navigateQuestion = (direction) => {
-    if (direction === 'next' && currentQuestionIndex < questions. length - 1) {
+    if (direction === 'next' && currentQuestionIndex < questions.length - 1)
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-    } else if (direction === 'prev' && currentQuestionIndex > 0) {
+    else if (direction === 'prev' && currentQuestionIndex > 0)
       setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
   };
+  const jumpToQuestion = (index) => setCurrentQuestionIndex(index);
 
-  const jumpToQuestion = (index) => {
-    setCurrentQuestionIndex(index);
-  };
-
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER: LOADING
+  // ─────────────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="exam-loading">
@@ -438,34 +419,109 @@ const handleAutoSubmit = async (reason) => {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER: PRE-EXAM SCREEN (face verification gate)
+  // ─────────────────────────────────────────────────────────────────────────
   if (!examStarted) {
     return (
       <div className="exam-start-screen">
-        <div className="exam-start-card">
-          <h1>{exam. title}</h1>
-          <p className="exam-start-info">Duration: {exam.duration} minutes | Total Marks: {exam.totalMarks}</p>
+        <div className="exam-start-card" style={{ maxWidth: '800px' }}>
+          <h1>{exam.title}</h1>
+          <p className="exam-start-info">
+            Duration: {exam.duration} minutes | Total Marks: {exam.totalMarks}
+          </p>
 
-          <div className="proctoring-preview">
-            <h3>Camera Preview</h3>
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline
-              muted 
-              className="preview-video"
-              style={{
-                transform: 'scaleX(-1)', // Mirror effect
-                width: '100%',
-                maxWidth: '640px',
-                borderRadius: '8px',
-                backgroundColor: '#000'
-              }}
-            />
-            <p>Please ensure your face is clearly visible</p>
+          {/* ── Face Verification Panel ── */}
+          <div style={{
+            background: faceVerified ? '#f0fdf4' : '#fafafa',
+            border: `2px solid ${faceVerified ? '#22c55e' : '#e5e7eb'}`,
+            borderRadius: '12px',
+            padding: '20px',
+            marginBottom: '20px'
+          }}>
+            <h3 style={{ marginBottom: '12px' }}>
+              {faceVerified ? '✅ Identity Verified' : '🔐 Identity Verification Required'}
+            </h3>
+
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {/* Reference photo */}
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '6px' }}>Your registered photo</p>
+                {referenceSnapshot ? (
+                  <img
+                    src={referenceSnapshot}
+                    alt="Registered face"
+                    style={{
+                      width: '200px', height: '150px',
+                      objectFit: 'cover', borderRadius: '8px',
+                      border: '2px solid #d1d5db',
+                      transform: 'scaleX(-1)'
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '200px', height: '150px', borderRadius: '8px',
+                    background: '#e5e7eb', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', color: '#6b7280', fontSize: '0.9rem'
+                  }}>
+                    No photo on file
+                  </div>
+                )}
+              </div>
+
+              {/* Live camera */}
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '6px' }}>Live camera</p>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    width: '200px', height: '150px',
+                    objectFit: 'cover', borderRadius: '8px',
+                    border: `2px solid ${faceVerified ? '#22c55e' : '#d1d5db'}`,
+                    transform: 'scaleX(-1)',
+                    backgroundColor: '#000'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Status / error message */}
+            {verificationError && (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fca5a5',
+                borderRadius: '8px', padding: '10px 14px',
+                color: '#dc2626', fontSize: '0.9rem', marginBottom: '12px'
+              }}>
+                {verificationError}
+              </div>
+            )}
+
+            {faceVerified ? (
+              <div style={{
+                background: '#dcfce7', borderRadius: '8px', padding: '10px 14px',
+                color: '#15803d', fontWeight: '600', textAlign: 'center'
+              }}>
+                ✅ Face matched successfully — you may start the exam
+              </div>
+            ) : (
+              <Button
+                variant="primary"
+                onClick={handleVerifyFace}
+                loading={verifying}
+                fullWidth
+                style={{ marginTop: '4px' }}
+              >
+                {verifying ? 'Verifying...' : '🔍 Verify My Face'}
+              </Button>
+            )}
           </div>
 
+          {/* ── Instructions ── */}
           <div className="exam-start-instructions">
-            <h3>⚠️ Before you start: </h3>
+            <h3>⚠️ Before you start:</h3>
             <ul>
               <li>Ensure stable internet connection</li>
               <li>Your webcam will be monitored continuously</li>
@@ -473,12 +529,20 @@ const handleAutoSubmit = async (reason) => {
               <li>Do not switch tabs or exit fullscreen</li>
               <li>Keep your face visible at all times</li>
               <li>Avoid excessive head movement</li>
-              <li>You have {exam.proctoringSettings?. warningThreshold || 3} warnings before auto-submission</li>
+              <li>You have {exam.proctoringSettings?.warningThreshold || 3} warnings before auto-submission</li>
             </ul>
           </div>
 
-          <Button variant="primary" size="large" onClick={handleStartExam} fullWidth>
-            Start Exam Now
+          {/* ── Start button — only enabled after face is verified ── */}
+          <Button
+            variant="success"
+            size="large"
+            onClick={handleStartExam}
+            fullWidth
+            disabled={!faceVerified}
+            title={!faceVerified ? 'Please verify your face first' : ''}
+          >
+            {faceVerified ? '🚀 Start Exam Now' : '🔒 Verify Face to Unlock'}
           </Button>
 
           <Button
@@ -495,6 +559,9 @@ const handleAutoSubmit = async (reason) => {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER: EXAM WINDOW
+  // ─────────────────────────────────────────────────────────────────────────
   const currentQuestion = questions[currentQuestionIndex];
 
   return (
@@ -502,9 +569,9 @@ const handleAutoSubmit = async (reason) => {
       {/* Warning Banner */}
       {warningCount > 0 && (
         <div className={`warning-banner warning-level-${Math.min(warningCount, 3)}`}>
-          ⚠️ Warnings:  {warningCount}/{exam.proctoringSettings?.warningThreshold || 3}
+          ⚠️ Warnings: {warningCount}/{exam.proctoringSettings?.warningThreshold || 3}
           {warningCount >= (exam.proctoringSettings?.warningThreshold || 3) - 1 &&
-            ' - One more violation will auto-submit your exam! '}
+            ' — One more violation will auto-submit your exam!'}
         </div>
       )}
 
@@ -520,9 +587,7 @@ const handleAutoSubmit = async (reason) => {
         <div className="exam-stats">
           <div className="stat-item">
             <span className="stat-label">Answered: </span>
-            <span className="stat-value">
-              {getAnsweredCount()}/{questions.length}
-            </span>
+            <span className="stat-value">{getAnsweredCount()}/{questions.length}</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">Time: </span>
@@ -532,24 +597,19 @@ const handleAutoSubmit = async (reason) => {
           </div>
         </div>
 
-        {/* Webcam Preview */}
-          <div className="webcam-mini">
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline
-              muted 
-              style={{ 
-                transform: 'scaleX(-1)',
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-            />
-            <span className="webcam-status">
-              {warningCount === 0 ? '✓ Monitoring' : `⚠️ ${warningCount} warnings`}
-            </span>
-          </div>
+        {/* Webcam Mini Preview */}
+        <div className="webcam-mini">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ transform: 'scaleX(-1)', width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <span className="webcam-status">
+            {warningCount === 0 ? '✓ Monitoring' : `⚠️ ${warningCount} warnings`}
+          </span>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -561,9 +621,7 @@ const handleAutoSubmit = async (reason) => {
             {questions.map((q, index) => (
               <button
                 key={q._id}
-                className={`question-nav-button ${
-                  index === currentQuestionIndex ? 'active' : ''
-                } ${answers[q._id] !== undefined ? 'answered' : ''}`}
+                className={`question-nav-button ${index === currentQuestionIndex ? 'active' : ''} ${answers[q._id] !== undefined ? 'answered' : ''}`}
                 onClick={() => jumpToQuestion(index)}
               >
                 {index + 1}
@@ -571,14 +629,8 @@ const handleAutoSubmit = async (reason) => {
             ))}
           </div>
           <div className="navigator-legend">
-            <div className="legend-item">
-              <span className="legend-box answered"></span>
-              <span>Answered</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-box unanswered"></span>
-              <span>Not Answered</span>
-            </div>
+            <div className="legend-item"><span className="legend-box answered"></span><span>Answered</span></div>
+            <div className="legend-item"><span className="legend-box unanswered"></span><span>Not Answered</span></div>
           </div>
         </div>
 
@@ -588,20 +640,15 @@ const handleAutoSubmit = async (reason) => {
             <h3>Question {currentQuestionIndex + 1}</h3>
             <span className="question-marks">{currentQuestion.marks} mark(s)</span>
           </div>
-
           <div className="question-text">{currentQuestion.questionText}</div>
-
           {currentQuestion.image && (
             <img src={currentQuestion.image} alt="Question" className="question-image" />
           )}
-
           <div className="options-container">
             {currentQuestion.options.map((option, index) => (
               <label
                 key={index}
-                className={`option-item ${
-                  answers[currentQuestion._id] === index ? 'selected' : ''
-                }`}
+                className={`option-item ${answers[currentQuestion._id] === index ? 'selected' : ''}`}
               >
                 <input
                   type="radio"
@@ -610,9 +657,7 @@ const handleAutoSubmit = async (reason) => {
                   checked={answers[currentQuestion._id] === index}
                   onChange={() => handleAnswerChange(currentQuestion._id, index)}
                 />
-                <span className="option-label">
-                  {String.fromCharCode(65 + index)}. {option}
-                </span>
+                <span className="option-label">{String.fromCharCode(65 + index)}. {option}</span>
                 <span className="option-radio"></span>
               </label>
             ))}
@@ -623,38 +668,26 @@ const handleAutoSubmit = async (reason) => {
       {/* Navigation Footer */}
       <div className="exam-footer">
         <div className="footer-left">
-          <Button
-            variant="secondary"
-            onClick={() => navigateQuestion('prev')}
-            disabled={currentQuestionIndex === 0}
-          >
+          <Button variant="secondary" onClick={() => navigateQuestion('prev')} disabled={currentQuestionIndex === 0}>
             ← Previous
           </Button>
         </div>
-
         <div className="footer-center">
-          <span className="progress-text">
-            {getAnsweredCount()} of {questions.length} answered
-          </span>
+          <span className="progress-text">{getAnsweredCount()} of {questions.length} answered</span>
         </div>
-
         <div className="footer-right">
           {currentQuestionIndex < questions.length - 1 ? (
-            <Button variant="secondary" onClick={() => navigateQuestion('next')}>
-              Next →
-            </Button>
+            <Button variant="secondary" onClick={() => navigateQuestion('next')}>Next →</Button>
           ) : (
-            <Button variant="success" onClick={handleSubmit} disabled={submitting}>
-              Submit Exam
-            </Button>
+            <Button variant="success" onClick={handleSubmit} disabled={submitting}>Submit Exam</Button>
           )}
         </div>
       </div>
 
-      {/* ✅ NEW: Violation Modal */}
+      {/* Violation Modal */}
       <Modal
         isOpen={showViolationModal}
-        onClose={() => {}} // Prevent closing without OK
+        onClose={() => {}}
         title="⚠️ Violation Detected"
         footer={
           <Button variant="primary" onClick={handleViolationOk} fullWidth>
@@ -663,12 +696,8 @@ const handleAutoSubmit = async (reason) => {
         }
       >
         <div className="violation-modal-content">
-          <p style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>
-            {violationMessage}
-          </p>
-          <p style={{ color: '#dc2626', fontWeight: '600' }}>
-            This violation has been recorded.
-          </p>
+          <p style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>{violationMessage}</p>
+          <p style={{ color: '#dc2626', fontWeight: '600' }}>This violation has been recorded.</p>
           <p style={{ color: '#6b7280', fontSize: '0.9rem', marginTop: '0.5rem' }}>
             Warnings: {warningCount + 1}/{exam.proctoringSettings?.warningThreshold || 3}
           </p>
@@ -682,27 +711,19 @@ const handleAutoSubmit = async (reason) => {
         title="Confirm Submission"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setShowSubmitModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={confirmSubmit} loading={submitting}>
-              Submit Exam
-            </Button>
+            <Button variant="secondary" onClick={() => setShowSubmitModal(false)}>Cancel</Button>
+            <Button variant="danger" onClick={confirmSubmit} loading={submitting}>Submit Exam</Button>
           </>
         }
       >
         <div className="submit-confirmation">
-          <p>
-            <strong>Are you sure you want to submit the exam?</strong>
-          </p>
+          <p><strong>Are you sure you want to submit the exam?</strong></p>
           <div className="submit-stats">
             <p>Questions Answered: {getAnsweredCount()} / {questions.length}</p>
             <p>Questions Unanswered: {questions.length - getAnsweredCount()}</p>
             <p>Time Remaining: {formatTime(timeRemaining)}</p>
           </div>
-          <p className="submit-warning">
-            ⚠️ Once submitted, you cannot make any changes. 
-          </p>
+          <p className="submit-warning">⚠️ Once submitted, you cannot make any changes.</p>
         </div>
       </Modal>
     </div>

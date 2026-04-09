@@ -3,18 +3,18 @@ import * as faceapi from 'face-api.js';
 class MLService {
   constructor() {
     this.modelsLoaded = false;
-    this. faceDescriptor = null;
+    this.faceDescriptor = null;
     this.detectionInterval = null;
-    this.modelPath = '/models'; // Path to face-api.js models
-    
-    // ✅ NEW:  Tracking for stable detection
+    this.modelPath = '/models';
+
     this.noFaceCount = 0;
-    this. multipleFaceCount = 0;
+    this.multipleFaceCount = 0;
     this.headMovementCount = 0;
-    
-    // ✅ NEW:  Thresholds to prevent false positives
-    this. DETECTION_THRESHOLD = 3; // Need 3 consecutive detections before triggering
-    this.FACE_MATCH_THRESHOLD = 0.6; // Face verification threshold
+
+    // Lower threshold = faster violation detection (2 consecutive = ~5 seconds)
+    this.DETECTION_THRESHOLD = 2;
+    this.FACE_MATCH_THRESHOLD = 0.6;
+    this.MONITORING_INTERVAL = 2500; // ms between each detection cycle
   }
 
   /**
@@ -29,20 +29,17 @@ class MLService {
 
     try {
       console.log('📥 Loading face detection models...');
-
+      // Note: faceExpressionNet is intentionally excluded — it is not used
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(this.modelPath),
-        faceapi.nets.faceLandmark68Net.loadFromUri(this. modelPath),
-        faceapi.nets.faceRecognitionNet.loadFromUri(this. modelPath),
-        faceapi.nets.faceExpressionNet.loadFromUri(this.modelPath)
+        faceapi.nets.faceLandmark68Net.loadFromUri(this.modelPath),
+        faceapi.nets.faceRecognitionNet.loadFromUri(this.modelPath),
       ]);
-
       this.modelsLoaded = true;
-      console.log('✅ Face detection models loaded successfully');
+      console.log('✅ Face detection models loaded');
       return true;
     } catch (error) {
       console.error('❌ Error loading face detection models:', error);
-      console.error('Make sure models are placed in /public/models/ folder');
       return false;
     }
   }
@@ -59,11 +56,22 @@ class MLService {
       await this.loadModels();
     }
 
+    // Guard: same readiness checks as detection loop
+    if (
+      !videoElement ||
+      videoElement.readyState < 2 ||
+      videoElement.videoWidth === 0 ||
+      videoElement.paused
+    ) {
+      console.warn('⚠️ captureFaceDescriptor: video not ready (readyState:', videoElement?.readyState, 'width:', videoElement?.videoWidth, ')');
+      return null;
+    }
+
     try {
       const detection = await faceapi
         .detectSingleFace(videoElement, new faceapi.TinyFaceDetectorOptions({
-          inputSize: 416,
-          scoreThreshold: 0.5
+          inputSize: 320,
+          scoreThreshold: 0.2
         }))
         .withFaceLandmarks()
         .withFaceDescriptor();
@@ -73,7 +81,7 @@ class MLService {
         console.log('✅ Face descriptor captured successfully');
         return this.faceDescriptor;
       } else {
-        console.log('⚠️ No face detected');
+        console.log('⚠️ No face detected in captureFaceDescriptor');
         return null;
       }
     } catch (error) {
@@ -92,12 +100,23 @@ class MLService {
       await this.loadModels();
     }
 
+    // Guard: video must be playing and have valid dimensions
+    if (
+      !videoElement ||
+      videoElement.readyState < 2 ||   // HAVE_CURRENT_DATA
+      videoElement.videoWidth === 0 ||
+      videoElement.paused ||
+      videoElement.ended
+    ) {
+      console.log('⏸️ Video not ready for detection (readyState:', videoElement?.readyState, 'width:', videoElement?.videoWidth, ')');
+      return [];
+    }
+
     try {
-      // ✅ Adjusted for better detection
       const detections = await faceapi
         .detectAllFaces(videoElement, new faceapi.TinyFaceDetectorOptions({
-          inputSize:  416, // Good balance of speed and accuracy
-          scoreThreshold:  0.4 // Lower threshold to detect faces more easily
+          inputSize: 320,         // smaller = faster, still accurate for webcam
+          scoreThreshold: 0.2    // lowered from 0.4 — webcam feeds are noisier
         }))
         .withFaceLandmarks()
         .withFaceDescriptors();
@@ -233,25 +252,49 @@ class MLService {
    * @param {HTMLVideoElement} videoElement
    * @param {Object} callbacks - Callback functions for different events
    */
-  startMonitoring(videoElement, callbacks = {}) {
-    // Stop existing monitoring if any
-    if (this. detectionInterval) {
+  startMonitoring(videoElementOrGetter, callbacks = {}) {
+    if (this.detectionInterval) {
       this.stopMonitoring();
     }
 
-    console.log('👁️ Starting face monitoring.. .');
+    // Support both a direct element AND a getter function (() => element).
+    // Using a getter ensures we always resolve the *current* DOM node, which
+    // matters because React may swap the <video> element between renders.
+    const getVideo = typeof videoElementOrGetter === 'function'
+      ? videoElementOrGetter
+      : () => videoElementOrGetter;
 
-    // ✅ Reset counters
+    console.log('👁️ Starting face monitoring...');
+
     this.noFaceCount = 0;
     this.multipleFaceCount = 0;
     this.headMovementCount = 0;
 
     this.detectionInterval = setInterval(async () => {
       try {
+        // Always resolve the current video element
+        const videoElement = getVideo();
+
+        // Guard: skip if element missing or video dimensions not ready
+        if (!videoElement || videoElement.videoWidth === 0 || videoElement.ended) {
+          console.log('⏸️ No valid video element this tick');
+          return;
+        }
+        // If paused, try to resume before skipping
+        if (videoElement.paused) {
+          console.log('▶️ Video paused — attempting to resume...');
+          try { videoElement.play(); } catch (_) {}
+          return; // skip this tick, next tick it should be playing
+        }
+        if (videoElement.readyState < 2) {
+          console.log('⏳ Video readyState:', videoElement.readyState, '— waiting...');
+          return;
+        }
+
         const detections = await this.detectFaces(videoElement);
 
-        // ✅ No face detected - need consecutive detections
-        if (detections. length === 0) {
+        // No face detected — need DETECTION_THRESHOLD consecutive detections
+        if (detections.length === 0) {
           this.noFaceCount++;
           this.multipleFaceCount = 0; // Reset other counters
           this.headMovementCount = 0;
@@ -278,51 +321,35 @@ class MLService {
           return;
         }
 
-        // ✅ Exactly one face detected - reset no-face and multiple-face counters
-        this. noFaceCount = 0;
+        // Exactly one face — reset all counters
+        this.noFaceCount = 0;
         this.multipleFaceCount = 0;
 
         const detection = detections[0];
 
         // Face verification (if registered descriptor exists)
         if (this.faceDescriptor) {
-          const isMatch = this.verifyFace(
-            detection.descriptor,
-            this.faceDescriptor
-          );
-
+          const isMatch = this.verifyFace(detection.descriptor, this.faceDescriptor);
           if (!isMatch) {
-            console. log('⚠️ Face does not match registered user');
-            callbacks. onFaceMismatch && callbacks.onFaceMismatch();
+            console.log('⚠️ Face does not match registered user');
+            callbacks.onFaceMismatch && callbacks.onFaceMismatch();
             return;
           }
         }
 
-        // ✅ Head movement detection - need consecutive detections
-        const headMovement = this.detectHeadMovement(detection.landmarks);
-        if (headMovement. isLookingAway) {
-          this.headMovementCount++;
+        // HEAD MOVEMENT DETECTION — disabled for now
+        // (re-enable by uncommenting and passing onHeadMovement callback)
+        // const headMovement = this.detectHeadMovement(detection.landmarks);
+        // if (headMovement.isLookingAway) { ... }
 
-          if (this.headMovementCount >= this. DETECTION_THRESHOLD) {
-            console.log(`⚠️ Head movement detected: looking ${headMovement.direction} (${this.headMovementCount} consecutive times)`);
-            console.log(`   Offsets: horizontal=${headMovement. horizontalOffset?. toFixed(3)}, vertical=${headMovement.verticalOffset?. toFixed(3)}`);
-            callbacks.onHeadMovement && callbacks.onHeadMovement(headMovement.direction);
-            this.headMovementCount = 0; // Reset after triggering
-          }
-        } else {
-          this.headMovementCount = 0; // Reset if looking at screen
-        }
-
-        // ✅ All checks passed
-        if (detections.length === 1 && ! headMovement.isLookingAway) {
-          callbacks.onSuccess && callbacks.onSuccess(detection);
-        }
+        // All checks passed
+        callbacks.onSuccess && callbacks.onSuccess(detection);
 
       } catch (error) {
         console.error('❌ Error in monitoring loop:', error);
-        callbacks.onError && callbacks. onError(error);
+        callbacks.onError && callbacks.onError(error);
       }
-    }, 3000); // Check every 3 seconds
+    }, this.MONITORING_INTERVAL);
   }
 
   /**
