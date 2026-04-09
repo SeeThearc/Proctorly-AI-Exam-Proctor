@@ -99,3 +99,10 @@ docker-compose up --build**
 Frontend (Vite): http://localhost:5173
 
 Backend (Node API): http://localhost:5000
+
+**SOFTWARE DESIGN**
+
+The Proctorly Faculty Exam Details page is designed around clarity and speed of decision-making, using colour-coded action buttons, persistent role/status badges, and a clean three-column information grid so faculty can assess exam status and take action without unnecessary navigation. Information is progressively disclosed through tabs — Details, Questions, and Sessions — keeping the initial view focused rather than overwhelming. Proctoring settings are surfaced directly on the main details page with visible status indicators so faculty can verify security configurations are active before an exam goes live, eliminating the need for a separate settings screen.
+
+<img width="1255" height="715" alt="architecture" src="https://github.com/user-attachments/assets/4a2427c8-ff1a-451c-b947-1583c9f9312b" />
+
