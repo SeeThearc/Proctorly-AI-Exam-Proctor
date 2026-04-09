@@ -23,6 +23,7 @@ import ExamList from './pages/Faculty/ExamList';
 import ExamDetails from './Pages/Faculty/ExamDetails';
 import EditExam from './Pages/Faculty/EditExam';
 import SessionReports from './pages/Faculty/SessionReports';
+import SessionDetail from './Pages/Faculty/SessionDetail';
 // import MonitorExam from './pages/Faculty/MonitorExam';
 
 // Admin pages
@@ -113,6 +114,11 @@ function App() {
           <Route path="/faculty/exams/:examId/sessions" element={
             <ProtectedRoute allowedRoles={['faculty', 'admin']}>
               <SessionReports />
+            </ProtectedRoute>
+          } />
+          <Route path="/faculty/sessions/:sessionId" element={
+            <ProtectedRoute allowedRoles={['faculty', 'admin']}>
+              <SessionDetail />
             </ProtectedRoute>
           } />
           {/* <Route path="/faculty/exams/:examId/monitor" element={

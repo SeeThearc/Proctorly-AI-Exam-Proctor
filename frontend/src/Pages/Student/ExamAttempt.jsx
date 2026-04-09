@@ -36,6 +36,8 @@ const ExamAttempt = () => {
   const [violationMessage, setViolationMessage] = useState('');
   const [violationType, setViolationType] = useState('');
   const [isProcessingViolation, setIsProcessingViolation] = useState(false);
+  // Snapshot captured at detection time — stored here until logViolation is called
+  const violationSnapshotRef = useRef(null);
 
   const autoSubmitRef = useRef(false);
 
@@ -122,16 +124,28 @@ const ExamAttempt = () => {
   // ── Violation handlers (set once exam starts) ──────────────────────────────
   useEffect(() => {
     if (!examStarted) return;
-    const handleNoFace = () =>
+
+    // Each handler receives the snapshot captured at detection moment
+    const handleNoFace = (snapshot) => {
+      violationSnapshotRef.current = snapshot || null;
       handleProctoringViolation('no-face-detected', '⚠️ No face detected! Please ensure your face is visible in the camera.');
-    const handleMultipleFaces = () =>
+    };
+    const handleMultipleFaces = (count, snapshot) => {
+      violationSnapshotRef.current = snapshot || null;
       handleProctoringViolation('multiple-faces', '⚠️ Multiple faces detected! Only you should be visible during the exam.');
-    const handleHeadMovement = (direction) =>
+    };
+    const handleHeadMovement = (direction, snapshot) => {
+      violationSnapshotRef.current = snapshot || null;
       handleProctoringViolation('excessive-head-movement', `⚠️ Excessive head movement detected! You are looking ${direction}. Please look at the screen.`);
-    const handleTabSwitch = () =>
+    };
+    const handleTabSwitch = () => {
+      violationSnapshotRef.current = null; // no detection frame for tab-switch
       handleProctoringViolation('tab-switch', '⚠️ Tab switch detected! Do NOT switch tabs or windows during the exam.');
-    const handleFaceMismatch = () =>
+    };
+    const handleFaceMismatch = (snapshot) => {
+      violationSnapshotRef.current = snapshot || null;
       handleProctoringViolation('face-not-matching', '⚠️ Face mismatch detected! The face in front of the camera does not match your registered face.');
+    };
 
     window.proctoringViolationHandlers = {
       onNoFace: handleNoFace,
@@ -322,7 +336,10 @@ const ExamAttempt = () => {
   const handleViolationOk = async () => {
     try {
       if (violationType && session?._id) {
-        await logViolation(violationType);
+        // Use the snapshot stored at detection time (not captured now)
+        const snapshot = violationSnapshotRef.current;
+        violationSnapshotRef.current = null;
+        await logViolation(violationType, 'high', {}, snapshot);
       }
       if (violationType === 'fullscreen-exit') {
         const success = await enterFullscreen();

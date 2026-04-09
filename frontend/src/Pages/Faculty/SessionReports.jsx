@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import Navbar from '../../components/Layout/Navbar';
 import Card from '../../components/Common/Card';
@@ -10,6 +10,7 @@ import './SessionReports.css';
 
 const SessionReports = () => {
   const { examId } = useParams();
+  const navigate = useNavigate();
   const [exam, setExam] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [stats, setStats] = useState(null);
@@ -246,7 +247,11 @@ const SessionReports = () => {
                       <td>{new Date(session.startTime).toLocaleString()}</td>
                       <td>
                         <div className="action-buttons">
-                          <Button variant="primary" size="small">
+                          <Button
+                            variant="primary"
+                            size="small"
+                            onClick={() => navigate(`/faculty/sessions/${session._id}`)}
+                          >
                             View Details
                           </Button>
                         </div>

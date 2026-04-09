@@ -293,6 +293,10 @@ class MLService {
 
         const detections = await this.detectFaces(videoElement);
 
+        // Capture the frame RIGHT NOW — this exact frame caused the detection result.
+        // We pass snapshot into the callbacks so the violation image is always accurate.
+        const snapshot = this.captureSnapshot(videoElement);
+
         // No face detected — need DETECTION_THRESHOLD consecutive detections
         if (detections.length === 0) {
           this.noFaceCount++;
@@ -301,7 +305,7 @@ class MLService {
 
           if (this.noFaceCount >= this.DETECTION_THRESHOLD) {
             console.log(`⚠️ No face detected (${this.noFaceCount} consecutive times)`);
-            callbacks.onNoFace && callbacks.onNoFace();
+            callbacks.onNoFace && callbacks.onNoFace(snapshot);
             this.noFaceCount = 0; // Reset after triggering
           }
           return;
@@ -315,7 +319,7 @@ class MLService {
 
           if (this.multipleFaceCount >= this. DETECTION_THRESHOLD) {
             console.log(`⚠️ Multiple faces detected:  ${detections.length} (${this. multipleFaceCount} consecutive times)`);
-            callbacks.onMultipleFaces && callbacks.onMultipleFaces(detections. length);
+            callbacks.onMultipleFaces && callbacks.onMultipleFaces(detections. length, snapshot);
             this.multipleFaceCount = 0; // Reset after triggering
           }
           return;
@@ -332,7 +336,7 @@ class MLService {
           const isMatch = this.verifyFace(detection.descriptor, this.faceDescriptor);
           if (!isMatch) {
             console.log('⚠️ Face does not match registered user');
-            callbacks.onFaceMismatch && callbacks.onFaceMismatch();
+            callbacks.onFaceMismatch && callbacks.onFaceMismatch(snapshot);
             return;
           }
         }
@@ -340,7 +344,7 @@ class MLService {
         // HEAD MOVEMENT DETECTION — disabled for now
         // (re-enable by uncommenting and passing onHeadMovement callback)
         // const headMovement = this.detectHeadMovement(detection.landmarks);
-        // if (headMovement.isLookingAway) { ... }
+        // if (headMovement.isLookingAway) { callbacks.onHeadMovement(headMovement.direction, snapshot); }
 
         // All checks passed
         callbacks.onSuccess && callbacks.onSuccess(detection);

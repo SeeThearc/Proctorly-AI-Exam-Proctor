@@ -79,7 +79,7 @@ const useProctoring = (sessionId, proctoringSettings) => {
   };
 
   // ── Violation logger ───────────────────────────────────────────────────────
-  const logViolation = useCallback(async (violationType, severity = 'medium', metadata = {}) => {
+  const logViolation = useCallback(async (violationType, severity = 'medium', metadata = {}, preSnapshot = null) => {
     if (!sessionId) return;
 
     const now = Date.now();
@@ -91,7 +91,10 @@ const useProctoring = (sessionId, proctoringSettings) => {
     lastViolationRef.current = { type: violationType, timestamp: now };
 
     try {
-      const snapshot = videoRef.current ? mlService.captureSnapshot(videoRef.current) : null;
+      // Use the frame captured at detection time if available;
+      // fall back to a fresh capture for event-based violations (tab-switch etc.)
+      const snapshot = preSnapshot || (videoRef.current ? mlService.captureSnapshot(videoRef.current) : null);
+
       const response = await api.post(`/proctoring/violation/${sessionId}`, {
         violationType, severity, snapshot,
         metadata: { timestamp: new Date().toISOString(), ...metadata },
@@ -166,25 +169,26 @@ const useProctoring = (sessionId, proctoringSettings) => {
       // Start ML monitoring with a getter so it always gets the live DOM node
       if (modelsLoaded) {
         mlService.startMonitoring(() => videoRef.current, {
-          onNoFace: () => {
+          // snapshot = the exact video frame captured at the moment of detection
+          onNoFace: (snapshot) => {
             window.proctoringViolationHandlers?.onNoFace
               ? window.proctoringViolationHandlers.onNoFace()
-              : logViolation('no-face-detected', 'high');
+              : logViolation('no-face-detected', 'high', {}, snapshot);
           },
-          onMultipleFaces: (count) => {
+          onMultipleFaces: (count, snapshot) => {
             window.proctoringViolationHandlers?.onMultipleFaces
               ? window.proctoringViolationHandlers.onMultipleFaces(count)
-              : logViolation('multiple-faces', 'high', { faceCount: count });
+              : logViolation('multiple-faces', 'high', { faceCount: String(count) }, snapshot);
           },
-          onFaceMismatch: () => {
+          onFaceMismatch: (snapshot) => {
             window.proctoringViolationHandlers?.onFaceMismatch
               ? window.proctoringViolationHandlers.onFaceMismatch()
-              : logViolation('face-not-matching', 'high');
+              : logViolation('face-not-matching', 'high', {}, snapshot);
           },
-          onHeadMovement: (direction) => {
+          onHeadMovement: (direction, snapshot) => {
             window.proctoringViolationHandlers?.onHeadMovement
               ? window.proctoringViolationHandlers.onHeadMovement(direction)
-              : logViolation('excessive-head-movement', 'medium', { direction });
+              : logViolation('excessive-head-movement', 'medium', { direction }, snapshot);
           },
           onSuccess: () => {},
           onError: (err) => console.error('ML loop error:', err),
