@@ -291,11 +291,10 @@ class MLService {
           return;
         }
 
-        const detections = await this.detectFaces(videoElement);
-
-        // Capture the frame RIGHT NOW — this exact frame caused the detection result.
-        // We pass snapshot into the callbacks so the violation image is always accurate.
+        // Capture the frame RIGHT NOW to guarantee the violation reflects the frame that caused the detection.
         const snapshot = this.captureSnapshot(videoElement);
+
+        const detections = await this.detectFaces(videoElement);
 
         // No face detected — need DETECTION_THRESHOLD consecutive detections
         if (detections.length === 0) {

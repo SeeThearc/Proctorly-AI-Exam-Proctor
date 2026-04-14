@@ -57,6 +57,11 @@ const ExamAttempt = () => {
   const handleFullscreenViolation = async () => {
     if (!examStarted || isProcessingViolation) return;
     setIsProcessingViolation(true);
+
+    if (videoRef.current) {
+      violationSnapshotRef.current = mlService.captureSnapshot(videoRef.current);
+    }
+    
     setViolationType('fullscreen-exit');
     setViolationMessage('You exited fullscreen mode! Please click OK to return to fullscreen.');
     setShowViolationModal(true);
@@ -138,8 +143,8 @@ const ExamAttempt = () => {
       violationSnapshotRef.current = snapshot || null;
       handleProctoringViolation('excessive-head-movement', `⚠️ Excessive head movement detected! You are looking ${direction}. Please look at the screen.`);
     };
-    const handleTabSwitch = () => {
-      violationSnapshotRef.current = null; // no detection frame for tab-switch
+    const handleTabSwitch = (snapshot) => {
+      violationSnapshotRef.current = snapshot || null;
       handleProctoringViolation('tab-switch', '⚠️ Tab switch detected! Do NOT switch tabs or windows during the exam.');
     };
     const handleFaceMismatch = (snapshot) => {

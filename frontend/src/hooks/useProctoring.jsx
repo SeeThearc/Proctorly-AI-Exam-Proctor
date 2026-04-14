@@ -117,17 +117,19 @@ const useProctoring = (sessionId, proctoringSettings) => {
   // ── Tab switch ─────────────────────────────────────────────────────────────
   const handleTabSwitch = useCallback(() => {
     if (proctoringSettings?.enableTabSwitch && document.hidden) {
+      const snap = videoRef.current ? mlService.captureSnapshot(videoRef.current) : null;
       window.proctoringViolationHandlers?.onTabSwitch
-        ? window.proctoringViolationHandlers.onTabSwitch()
-        : logViolation('tab-switch', 'high');
+        ? window.proctoringViolationHandlers.onTabSwitch(snap)
+        : logViolation('tab-switch', 'high', {}, snap);
     }
   }, [proctoringSettings, logViolation]);
 
   const handleWindowBlur = useCallback(() => {
     if (proctoringSettings?.enableTabSwitch) {
+      const snap = videoRef.current ? mlService.captureSnapshot(videoRef.current) : null;
       window.proctoringViolationHandlers?.onTabSwitch
-        ? window.proctoringViolationHandlers.onTabSwitch()
-        : logViolation('tab-switch', 'high');
+        ? window.proctoringViolationHandlers.onTabSwitch(snap)
+        : logViolation('tab-switch', 'high', {}, snap);
     }
   }, [proctoringSettings, logViolation]);
 
@@ -172,22 +174,22 @@ const useProctoring = (sessionId, proctoringSettings) => {
           // snapshot = the exact video frame captured at the moment of detection
           onNoFace: (snapshot) => {
             window.proctoringViolationHandlers?.onNoFace
-              ? window.proctoringViolationHandlers.onNoFace()
+              ? window.proctoringViolationHandlers.onNoFace(snapshot)
               : logViolation('no-face-detected', 'high', {}, snapshot);
           },
           onMultipleFaces: (count, snapshot) => {
             window.proctoringViolationHandlers?.onMultipleFaces
-              ? window.proctoringViolationHandlers.onMultipleFaces(count)
+              ? window.proctoringViolationHandlers.onMultipleFaces(count, snapshot)
               : logViolation('multiple-faces', 'high', { faceCount: String(count) }, snapshot);
           },
           onFaceMismatch: (snapshot) => {
             window.proctoringViolationHandlers?.onFaceMismatch
-              ? window.proctoringViolationHandlers.onFaceMismatch()
+              ? window.proctoringViolationHandlers.onFaceMismatch(snapshot)
               : logViolation('face-not-matching', 'high', {}, snapshot);
           },
           onHeadMovement: (direction, snapshot) => {
             window.proctoringViolationHandlers?.onHeadMovement
-              ? window.proctoringViolationHandlers.onHeadMovement(direction)
+              ? window.proctoringViolationHandlers.onHeadMovement(direction, snapshot)
               : logViolation('excessive-head-movement', 'medium', { direction }, snapshot);
           },
           onSuccess: () => {},
