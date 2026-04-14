@@ -363,6 +363,24 @@ const ExamAttempt = () => {
     }
   };
 
+  // Keep a ref to the latest handleViolationOk to avoid stale closures in timeouts
+  const handleViolationOkRef = useRef(null);
+  useEffect(() => {
+    handleViolationOkRef.current = handleViolationOk;
+  });
+
+  // Auto-dismiss the violation modal after 4 seconds
+  useEffect(() => {
+    if (showViolationModal) {
+      const timer = setTimeout(() => {
+        if (handleViolationOkRef.current) {
+          handleViolationOkRef.current();
+        }
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showViolationModal]);
+
   // ─────────────────────────────────────────────────────────────────────────
   // ANSWER + SUBMIT
   // ─────────────────────────────────────────────────────────────────────────

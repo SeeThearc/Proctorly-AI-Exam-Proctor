@@ -27,7 +27,7 @@ const CreateExam = () => {
     proctoringSettings: {
       enableFaceDetection: true,
       enableMultipleFaceDetection: true,
-      enableHeadMovement: true,
+      enableHeadMovement: false,
       enableTabSwitch: true,
       warningThreshold: 3
     },
@@ -496,7 +496,7 @@ const CreateExam = () => {
                     label="Marks"
                     type="number"
                     value={question.marks}
-                    onChange={(e) => updateQuestion(qIndex, 'marks', parseInt(e.target.value) || 1)}
+                    onChange={(e) => updateQuestion(qIndex, 'marks', e.target.value === '' ? '' : parseInt(e.target.value))}
                     min="1"
                     required
                   />
@@ -589,15 +589,14 @@ const CreateExam = () => {
                 <span>Detect Multiple Faces</span>
               </label>
 
-              <label className="checkbox-label">
+              {/* <label className="checkbox-label">
                 <input
                   type="checkbox"
-                  checked={examData.proctoringSettings. enableHeadMovement}
+                  checked={examData.proctoringSettings.enableHeadMovement}
                   onChange={(e) => handleProctoringChange('enableHeadMovement', e.target.checked)}
                 />
                 <span>Track Head Movement</span>
-              </label>
-
+              </label> */}
               <label className="checkbox-label">
                 <input
                   type="checkbox"
