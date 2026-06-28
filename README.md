@@ -1,108 +1,256 @@
-**AI-Based Online Exam Proctoring System**
-(Extended MERN Stack with Machine Learning)
+# AI-Based Online Exam Proctoring System
 
-**Project Overview**
+> **Extended MERN Stack with Machine Learning**
 
-An AI-powered online examination system built using the Extended MERN stack that ensures secure, fair, and monitored online exams. The platform integrates real-time computer vision–based proctoring, role-based authentication, and automated violation handling to prevent cheating and impersonation.
+An AI-powered online examination platform built using the **Extended MERN Stack** that ensures secure, fair, and monitored online exams through real-time AI-based proctoring, role-based authentication, and automated violation handling.
 
-**Problem It Solves**
+---
 
-Traditional online exams lack effective monitoring, making them vulnerable to impersonation, unfair practices, and rule violations such as tab switching or external assistance. This system addresses these issues by enforcing continuous AI-based monitoring and strict exam environment controls.
+## 📖 Project Overview
 
-**Target Users (Personas)**
+The **AI-Based Online Exam Proctoring System** integrates machine learning-based computer vision with a modern MERN architecture to monitor students during online examinations. The platform helps educational institutions conduct secure exams by detecting suspicious activities such as face absence, multiple faces, excessive head movement, tab switching, and window focus loss.
 
-Faculty: Conducts and evaluates online exams, reviews violation reports, and monitors exam integrity.
+The system automatically warns students upon violations and submits the exam after repeated offenses, helping maintain academic integrity.
 
-Students: Attempts online exams under secure authentication and continuous AI proctoring.
+---
 
-**Vision Statement**
+## 🚀 Problem Statement
 
-To provide a reliable, scalable, and intelligent online examination platform that maintains academic integrity through automated AI-based proctoring and secure system design.
+Traditional online examination platforms lack effective monitoring mechanisms, making them vulnerable to:
 
-**Key Features / Goals**
+- Impersonation
+- Unfair practices
+- Tab switching
+- External assistance
+- Exam rule violations
 
-JWT-based authentication with role-based access (Faculty & Student)
+This project addresses these challenges through continuous AI-powered monitoring and secure authentication.
 
-AI-based webcam proctoring (face detection, multiple face detection, head movement analysis)
+---
 
-Mandatory full-screen exam environment
+## 👥 Target Users
 
-Detection of tab switching, window minimizing, and focus loss
+### Faculty
 
-Centralized warning system with auto-submission after three violations
+- Create and manage online examinations
+- Monitor students during exams
+- Review AI-generated violation reports
+- Evaluate student performance
 
-Secure storage of exam data, logs, and reports in MongoDB
+### Student
 
-**Success Metrics**
+- Securely log in using authenticated credentials
+- Attempt online examinations
+- Be monitored continuously through AI-based webcam proctoring
+- Receive real-time warnings for detected violations
 
-Reduction in cheating incidents during online exams
+---
 
-Accurate detection of face and behavior-based violations
+## 🎯 Vision Statement
 
-Successful auto-submission after violation threshold
+To provide a reliable, scalable, and intelligent online examination platform that maintains academic integrity through automated AI-based proctoring and secure system architecture.
 
-Positive faculty feedback on report clarity and usability
+---
 
-Stable performance during concurrent exam sessions
+## ✨ Features
 
-**Assumptions & Constraints**
+### Authentication
 
-**Assumptions**
+- JWT-based Authentication
+- Role-Based Access Control
+- Faculty Dashboard
+- Student Dashboard
 
-Students have access to a webcam-enabled device and stable internet
+### AI Proctoring
 
-Users attempt exams using modern browsers supporting WebRTC
+- Real-time Face Detection
+- Multiple Face Detection
+- Face Tracking
+- Head Movement Analysis
+- Continuous Webcam Monitoring
 
-**Constraints**
+### Exam Monitoring
 
-Accuracy depends on lighting and camera quality
+- Mandatory Full-Screen Mode
+- Tab Switching Detection
+- Window Minimize Detection
+- Browser Focus Monitoring
+- Automated Warning System
 
-Browser-based proctoring cannot prevent all external cheating methods
+### Security
 
-Real-time ML inference may impact performance on low-end devices
+- Secure JWT Authentication
+- Protected APIs
+- Secure MongoDB Storage
+- Exam Logs and Violation Reports
 
-| Priority    | Features                               |
-| ----------- | -------------------------------------- |
-| Must Have   | Login, Exam Monitoring, Face Detection |
-| Should Have | Face Tracker                           |
-| Could Have  | Voice Detection                        |
-| Won’t Have  | Mobile App                             |
+### Automated Actions
 
-## Branching Strategy
+- Warning after every detected violation
+- Automatic exam submission after three violations
+- Faculty access to detailed violation reports
 
-We follow GitHub Flow:
-main branch is always stable
+---
 
-feature branches are created for new features
+## 📊 Success Metrics
 
-pull requests are used before merging
+- Reduction in cheating incidents during online examinations
+- Accurate detection of face and behavior-based violations
+- Reliable auto-submission after reaching the violation threshold
+- Positive faculty feedback regarding report clarity and usability
+- Stable performance during concurrent examination sessions
 
+---
 
-## Quick Start – Local Development
+## ⚠️ Assumptions
 
-Follow these steps to run the frontend (Vite) and backend (Node.js) together using Docker.
+- Students have access to a webcam-enabled device.
+- Users have a stable internet connection.
+- Modern browsers supporting WebRTC are used.
 
-**Prerequisites**
+---
 
-Make sure you have the following installed:
+## 🚧 Constraints
 
-Docker
+- Detection accuracy depends on lighting conditions.
+- Detection quality depends on webcam quality.
+- Browser-based monitoring cannot prevent every external cheating method.
+- Real-time machine learning inference may affect performance on low-end devices.
 
-Docker Compose
+---
 
-**From the project root directory, run:
+## 📌 Project Scope (MoSCoW Prioritization)
 
-docker-compose up --build**
+| Priority | Features |
+|----------|----------|
+| ✅ Must Have | Login, Exam Monitoring, Face Detection |
+| 🟡 Should Have | Face Tracker |
+| 🔵 Could Have | Voice Detection |
+| ❌ Won't Have | Mobile Application |
 
-**Access the Application**
+---
 
-Frontend (Vite): http://localhost:5173
+## 🌳 Branching Strategy
 
-Backend (Node API): http://localhost:5000
+This project follows **GitHub Flow**.
 
-**SOFTWARE DESIGN**
+```text
+main
+│
+├── feature/authentication
+├── feature/exam-module
+├── feature/proctoring
+├── feature/ml-model
+└── feature/dashboard
+```
 
-The Proctorly Faculty Exam Details page is designed around clarity and speed of decision-making, using colour-coded action buttons, persistent role/status badges, and a clean three-column information grid so faculty can assess exam status and take action without unnecessary navigation. Information is progressively disclosed through tabs — Details, Questions, and Sessions — keeping the initial view focused rather than overwhelming. Proctoring settings are surfaced directly on the main details page with visible status indicators so faculty can verify security configurations are active before an exam goes live, eliminating the need for a separate settings screen.
+### Workflow
 
-<img width="1255" height="715" alt="architecture" src="https://github.com/user-attachments/assets/4a2427c8-ff1a-451c-b947-1583c9f9312b" />
+1. Create a feature branch.
+2. Implement the feature.
+3. Commit changes.
+4. Open a Pull Request.
+5. Review and merge into the `main` branch.
 
+---
+
+## 🛠 Tech Stack
+
+### Frontend
+
+- React
+- Vite
+- Tailwind CSS
+- Axios
+
+### Backend
+
+- Node.js
+- Express.js
+
+### Database
+
+- MongoDB
+
+### Machine Learning
+
+- OpenCV
+- MediaPipe
+- TensorFlow (or Custom ML Models)
+
+### Authentication
+
+- JWT
+
+### DevOps
+
+- Docker
+- Docker Compose
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+Install the following software:
+
+- Docker
+- Docker Compose
+
+### Clone the Repository
+
+```bash
+git clone <repository-url>
+cd <project-folder>
+```
+
+### Run the Application
+
+```bash
+docker-compose up --build
+```
+
+### Access the Application
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:5000 |
+
+---
+
+## 🎨 Software Design
+
+The **Proctorly Faculty Exam Details** page is designed around **clarity**, **speed**, and **ease of decision-making**.
+
+### Design Highlights
+
+- Color-coded action buttons
+- Persistent role and status badges
+- Three-column information layout
+- Progressive information disclosure using tabs
+- Visible AI proctoring status indicators
+- Minimal navigation for common faculty tasks
+
+### Available Tabs
+
+- Details
+- Questions
+- Sessions
+
+Faculty members can quickly verify all security configurations before publishing an exam without navigating to a separate settings page.
+
+---
+
+## 🏗️ System Architecture
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4a2427c8-ff1a-451c-b947-1583c9f9312b" alt="System Architecture" width="900"/>
+</p>
+
+---
+
+## 📄 License
+
+This project is intended for educational and research purposes.
